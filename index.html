@@ -4,6 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Micro-Biz Dash: 2026</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="A whimsical 90s-style platformer where a solopreneur battles inflation, regulatory thickets, and burnout based on 2026 economic research." />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://github.com/prenticeventures/micro-biz-dash" />
+    <meta property="og:title" content="Micro-Biz Dash: 2026 Edition" />
+    <meta property="og:description" content="A whimsical 90s-style platformer where a solopreneur battles inflation, regulatory thickets, and burnout based on 2026 economic research." />
+    <meta property="og:image" content="/og-image.svg" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://github.com/prenticeventures/micro-biz-dash" />
+    <meta name="twitter:title" content="Micro-Biz Dash: 2026 Edition" />
+    <meta name="twitter:description" content="A whimsical 90s-style platformer where a solopreneur battles inflation, regulatory thickets, and burnout based on 2026 economic research." />
+    <meta name="twitter:image" content="/og-image.svg" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +35,13 @@
         background-color: #1a1a1a;
         margin: 0;
         overflow: hidden;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        position: fixed;
+        width: 100%;
+        height: 100%;
       }
       /* Custom scanline effect */
       .scanlines {
@@ -32,6 +60,13 @@
         right: 0;
         bottom: 0;
         z-index: 50;
+      }
+      /* Prevent text selection and touch callouts on mobile */
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      button {
+        touch-action: manipulation;
       }
     </style>
     <!-- Import Map is kept for local preview environments that need it, 

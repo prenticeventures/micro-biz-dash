@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect width="64" height="64" fill="#000"/>
+  
+  <!-- "BIZ" text with pixelated style - using monospace for blocky pixelated look -->
+  <!-- Red shadow layer (offset 2px right and 2px down) -->
+  <text x="34" y="44" font-family="'Courier New', Courier, monospace" font-size="16" font-weight="bold" fill="#dc2626" text-anchor="middle" letter-spacing="3">BIZ</text>
+  <!-- Yellow text layer -->
+  <text x="32" y="42" font-family="'Courier New', Courier, monospace" font-size="16" font-weight="bold" fill="#facc15" text-anchor="middle" letter-spacing="3">BIZ</text>
+</svg>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import GameCanvas from './components/GameCanvas';
+import GameBoyControls from './components/GameBoyControls';
 import { GameStatus } from './types';
 import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
@@ -12,6 +13,12 @@ const App: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [nextLevelDesc, setNextLevelDesc] = useState<string>("");
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  
+  // Touch control state
+  const [touchLeftPressed, setTouchLeftPressed] = useState<boolean>(false);
+  const [touchRightPressed, setTouchRightPressed] = useState<boolean>(false);
+  const [touchJumpPressed, setTouchJumpPressed] = useState<boolean>(false);
   
   // Audio Manager Ref
   const audioRef = useRef<RetroAudio | null>(null);
@@ -22,6 +29,19 @@ const App: React.FC = () => {
     return () => {
       audioRef.current?.stopBGM();
     }
+  }, []);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        (window.innerWidth <= 768 && 'ontouchstart' in window);
+      setIsMobile(isMobileDevice);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   useEffect(() => {
@@ -91,16 +111,16 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-[#111] flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans select-none">
+    <div className="h-screen w-screen bg-black flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans select-none touch-none">
       
-      {/* Retro TV Container */}
-      <div className="relative bg-neutral-800 p-3 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 border-neutral-900 w-full max-w-[min(900px,110vh)] flex flex-col shrink-0">
+      {/* Retro TV/GameBoy Container */}
+      <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'max-w-full max-h-full h-full flex flex-col' : 'max-w-[min(900px,110vh)]'} flex flex-col shrink-0`}>
         
         {/* Screen Bezel */}
-        <div className="bg-black p-2 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 flex-1 min-h-0 flex flex-col">
+        <div className={`bg-black ${isMobile ? 'p-1.5' : 'p-2 sm:p-4'} ${isMobile ? 'rounded-xl' : 'rounded-[1.5rem] sm:rounded-[2rem]'} shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 ${isMobile ? 'flex-1 min-h-0' : 'flex-1 min-h-0'} flex flex-col`}>
            
            {/* The Screen Itself */}
-           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg sm:rounded-xl shadow-inner bg-black flex flex-col mx-auto">
+           <div className={`relative ${isMobile ? 'w-full h-full' : 'aspect-[4/3] w-full'} overflow-hidden ${isMobile ? 'rounded-md' : 'rounded-lg sm:rounded-xl'} shadow-inner bg-black flex flex-col mx-auto`}>
               
               {/* HUD */}
               <div className="bg-[#333] text-white p-2 border-b-2 sm:border-b-4 border-black font-mono text-[0.6rem] sm:text-sm flex justify-between items-center z-10 shrink-0 relative h-7 sm:h-10">
@@ -137,6 +157,9 @@ const App: React.FC = () => {
                   onHealthUpdate={setHealth}
                   onMessage={setMessage}
                   audioManager={audioRef.current}
+                  touchLeftPressed={touchLeftPressed}
+                  touchRightPressed={touchRightPressed}
+                  touchJumpPressed={touchJumpPressed}
                 />
 
                 {/* Overlays */}
@@ -158,7 +181,7 @@ const App: React.FC = () => {
                     </button>
                     <div className="mt-8 flex gap-4 text-[0.6rem] sm:text-xs opacity-80 font-mono">
                       <span>Move: ⬅️ ➡️</span>
-                      <span>Jump: SPACE</span>
+                      <span>Jump: SPACE / A</span>
                     </div>
                   </div>
                 )}
@@ -212,48 +235,66 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* TV Controls / Bottom Panel */}
-        <div className="mt-2 sm:mt-4 flex justify-between items-center px-2 sm:px-6">
-            {/* Speakers */}
-            <div className="flex gap-2 sm:gap-3">
-               <div className="space-y-1 sm:space-y-1.5 opacity-50">
-                  <div className="w-8 sm:w-20 h-0.5 sm:h-1 bg-black rounded-full shadow-[0_1px_0_rgba(255,255,255,0.1)]"></div>
-                  <div className="w-8 sm:w-20 h-0.5 sm:h-1 bg-black rounded-full shadow-[0_1px_0_rgba(255,255,255,0.1)]"></div>
-                  <div className="w-8 sm:w-20 h-0.5 sm:h-1 bg-black rounded-full shadow-[0_1px_0_rgba(255,255,255,0.1)]"></div>
-               </div>
-            </div>
-            
-            {/* Branding */}
-            <div className="text-neutral-500 font-bold font-mono tracking-[0.1em] sm:tracking-[0.2em] text-[0.6rem] sm:text-lg drop-shadow-[0_1px_0_rgba(255,255,255,0.1)]">
-               SOLO-SYSTEM 64
-            </div>
+        {/* TV Controls / Bottom Panel - Hidden on mobile, replaced by Game Boy controls */}
+        {!isMobile && (
+          <div className="mt-2 sm:mt-4 flex justify-between items-center px-2 sm:px-6">
+              {/* Speakers */}
+              <div className="flex gap-2 sm:gap-3">
+                 <div className="space-y-1 sm:space-y-1.5 opacity-50">
+                    <div className="w-8 sm:w-20 h-0.5 sm:h-1 bg-black rounded-full shadow-[0_1px_0_rgba(255,255,255,0.1)]"></div>
+                    <div className="w-8 sm:w-20 h-0.5 sm:h-1 bg-black rounded-full shadow-[0_1px_0_rgba(255,255,255,0.1)]"></div>
+                    <div className="w-8 sm:w-20 h-0.5 sm:h-1 bg-black rounded-full shadow-[0_1px_0_rgba(255,255,255,0.1)]"></div>
+                 </div>
+              </div>
+              
+              {/* Branding */}
+              <div className="text-neutral-500 font-bold font-mono tracking-[0.1em] sm:tracking-[0.2em] text-[0.6rem] sm:text-lg drop-shadow-[0_1px_0_rgba(255,255,255,0.1)]">
+                 SOLO-SYSTEM 64
+              </div>
 
-            {/* Controls: Volume & Power */}
-            <div className="flex items-center gap-4 sm:gap-6">
-                
-                {/* Volume Toggle */}
-                <button 
-                  onClick={() => setIsMuted(!isMuted)}
-                  className="group flex flex-col items-center gap-1 focus:outline-none"
-                  title={isMuted ? "Unmute" : "Mute"}
-                >
-                  <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-neutral-600 flex items-center justify-center shadow-inner transition-colors ${isMuted ? 'bg-neutral-700' : 'bg-green-900'}`}>
-                    <span className="text-[10px] sm:text-xs">
-                      {isMuted ? '🔇' : '🔊'}
-                    </span>
-                  </div>
-                  <span className="text-neutral-600 text-[0.4rem] sm:text-[0.6rem] font-bold uppercase tracking-wider">Vol</span>
-                </button>
+              {/* Controls: Volume & Power */}
+              <div className="flex items-center gap-4 sm:gap-6">
+                  
+                  {/* Volume Toggle */}
+                  <button 
+                    onClick={() => setIsMuted(!isMuted)}
+                    className="group flex flex-col items-center gap-1 focus:outline-none"
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-neutral-600 flex items-center justify-center shadow-inner transition-colors ${isMuted ? 'bg-neutral-700' : 'bg-green-900'}`}>
+                      <span className="text-[10px] sm:text-xs">
+                        {isMuted ? '🔇' : '🔊'}
+                      </span>
+                    </div>
+                    <span className="text-neutral-600 text-[0.4rem] sm:text-[0.6rem] font-bold uppercase tracking-wider">Vol</span>
+                  </button>
 
-                {/* Power */}
-                <div className="flex flex-col items-center gap-1">
-                  <div className="w-2 h-2 sm:w-4 sm:h-4 bg-red-600 rounded-full shadow-[0_0_10px_#f00] animate-pulse relative">
-                    <div className="absolute inset-0 bg-white/20 rounded-full animate-ping opacity-20"></div>
+                  {/* Power */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-2 h-2 sm:w-4 sm:h-4 bg-red-600 rounded-full shadow-[0_0_10px_#f00] animate-pulse relative">
+                      <div className="absolute inset-0 bg-white/20 rounded-full animate-ping opacity-20"></div>
+                    </div>
+                    <div className="text-neutral-600 text-[0.5rem] sm:text-xs font-bold uppercase tracking-wider">Power</div>
                   </div>
-                  <div className="text-neutral-600 text-[0.5rem] sm:text-xs font-bold uppercase tracking-wider">Power</div>
-                </div>
-            </div>
-        </div>
+              </div>
+          </div>
+        )}
+
+        {/* Game Boy Controls - Mobile Only */}
+        {isMobile && (
+          <div className="flex flex-col items-center justify-center py-3 px-2 shrink-0">
+            <GameBoyControls
+              onLeftPress={() => setTouchLeftPressed(true)}
+              onLeftRelease={() => setTouchLeftPressed(false)}
+              onRightPress={() => setTouchRightPressed(true)}
+              onRightRelease={() => setTouchRightPressed(false)}
+              onAPress={() => setTouchJumpPressed(true)}
+              onARelease={() => setTouchJumpPressed(false)}
+              onMuteToggle={() => setIsMuted(!isMuted)}
+              isMuted={isMuted}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

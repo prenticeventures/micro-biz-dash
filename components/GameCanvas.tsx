@@ -31,6 +31,10 @@ interface GameCanvasProps {
   onHealthUpdate: (health: number) => void;
   onMessage: (msg: string) => void;
   audioManager: RetroAudio | null;
+  // Touch control state (synced with keysRef)
+  touchLeftPressed?: boolean;
+  touchRightPressed?: boolean;
+  touchJumpPressed?: boolean;
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
@@ -41,7 +45,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   onScoreUpdate,
   onHealthUpdate,
   onMessage,
-  audioManager
+  audioManager,
+  touchLeftPressed = false,
+  touchRightPressed = false,
+  touchJumpPressed = false
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
@@ -67,6 +74,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const cameraXRef = useRef<number>(0);
   const levelDataRef = useRef<LevelData | null>(null);
+  const touchJumpHandledRef = useRef<boolean>(false);
 
   // Initialize Level
   useEffect(() => {
@@ -81,12 +89,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       playerRef.current.health = MAX_HEALTH;
       playerRef.current.isDead = false;
       cameraXRef.current = 0;
+      touchJumpHandledRef.current = false;
       
       onHealthUpdate(MAX_HEALTH);
     }
   }, [level, status, onHealthUpdate]); 
 
-  // Input Handling
+  // Input Handling - Keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current[e.code] = true;
@@ -110,6 +119,22 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [status, audioManager]);
 
+  // Input Handling - Touch Controls (handle jump on press)
+  useEffect(() => {
+    // Handle jump action when touch jump button is first pressed (not while held)
+    if (touchJumpPressed && !touchJumpHandledRef.current && status === GameStatus.PLAYING) {
+      if (playerRef.current.isGrounded) {
+        playerRef.current.vel.y = JUMP_FORCE;
+        playerRef.current.isGrounded = false;
+        audioManager?.playJump();
+      }
+      touchJumpHandledRef.current = true;
+    } else if (!touchJumpPressed) {
+      // Reset when button is released
+      touchJumpHandledRef.current = false;
+    }
+  }, [touchJumpPressed, status, audioManager]);
+
   // Physics & Logic
   const update = useCallback(() => {
     if (status !== GameStatus.PLAYING || !levelDataRef.current) return;
@@ -119,11 +144,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     // Gravity
     player.vel.y += GRAVITY;
 
-    // Movement
-    if (keysRef.current['ArrowRight'] || keysRef.current['KeyD']) {
+    // Movement (keyboard or touch)
+    if (keysRef.current['ArrowRight'] || keysRef.current['KeyD'] || touchRightPressed) {
       player.vel.x = MOVE_SPEED;
       player.direction = 1;
-    } else if (keysRef.current['ArrowLeft'] || keysRef.current['KeyA']) {
+    } else if (keysRef.current['ArrowLeft'] || keysRef.current['KeyA'] || touchLeftPressed) {
       player.vel.x = -MOVE_SPEED;
       player.direction = -1;
     } else {
@@ -260,7 +285,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const targetCamX = player.pos.x - CANVAS_WIDTH / 3;
     cameraXRef.current = Math.max(0, Math.min(targetCamX, levelDataRef.current.width - CANVAS_WIDTH));
 
-  }, [status, levelDataRef, audioManager]);
+  }, [status, levelDataRef, audioManager, touchLeftPressed, touchRightPressed]);
 
   // --- Drawing Helpers ---
 
