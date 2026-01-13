@@ -31,23 +31,37 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Detect mobile device
+  // Detect mobile device - simplified and more aggressive
   useEffect(() => {
     const checkMobile = () => {
-      // Check user agent - more comprehensive patterns
+      // Check user agent
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
       const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS|EdgiOS/i.test(userAgent);
       
-      // Check for touch capability
+      // Check for touch capability - primary indicator for mobile
       const hasTouch = 'ontouchstart' in window || 
                        (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || 
                        ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
       
-      // Check screen size - be more permissive (up to 1024px for tablets)
+      // Check screen size
       const isSmallScreen = window.innerWidth <= 1024;
       
-      // Check if it's a mobile device - prioritize user agent, fallback to touch + screen size
-      const isMobileDevice = isMobileUserAgent || (isSmallScreen && hasTouch);
+      // Simplified: prioritize touch capability - if it has touch, it's mobile
+      // Also check user agent as backup
+      // Screen size is less important since modern phones can have large screens
+      const isMobileDevice = hasTouch || isMobileUserAgent || isSmallScreen;
+      
+      // Debug logging
+      console.log('Mobile Detection Debug:', {
+        userAgent: userAgent.substring(0, 100),
+        isMobileUserAgent,
+        hasTouch,
+        isSmallScreen,
+        windowWidth: window.innerWidth,
+        maxTouchPoints: navigator.maxTouchPoints,
+        isMobileDevice,
+        result: isMobileDevice ? 'MOBILE' : 'DESKTOP'
+      });
       
       setIsMobile(isMobileDevice);
     };
@@ -55,7 +69,7 @@ const App: React.FC = () => {
     // Check immediately
     checkMobile();
     
-    // Also check on load (in case user agent isn't ready)
+    // Also check on load
     if (document.readyState === 'complete') {
       checkMobile();
     } else {
