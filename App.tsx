@@ -34,14 +34,42 @@ const App: React.FC = () => {
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => {
-      const isMobileDevice = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-        (window.innerWidth <= 768 && 'ontouchstart' in window);
+      // Check user agent - more comprehensive patterns
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS|EdgiOS/i.test(userAgent);
+      
+      // Check for touch capability
+      const hasTouch = 'ontouchstart' in window || 
+                       (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || 
+                       ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
+      
+      // Check screen size - be more permissive (up to 1024px for tablets)
+      const isSmallScreen = window.innerWidth <= 1024;
+      
+      // Check if it's a mobile device - prioritize user agent, fallback to touch + screen size
+      const isMobileDevice = isMobileUserAgent || (isSmallScreen && hasTouch);
+      
       setIsMobile(isMobileDevice);
     };
     
+    // Check immediately
     checkMobile();
+    
+    // Also check on load (in case user agent isn't ready)
+    if (document.readyState === 'complete') {
+      checkMobile();
+    } else {
+      window.addEventListener('load', checkMobile);
+    }
+    
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+    
+    return () => {
+      window.removeEventListener('load', checkMobile);
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
   }, []);
 
   useEffect(() => {
