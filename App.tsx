@@ -324,7 +324,7 @@ const App: React.FC = () => {
 
         {/* Game Boy Controls - Mobile Only - Takes exactly 1/3 of space */}
         {isMobile && (
-          <div className="flex flex-col items-center justify-center shrink-0 flex-[1_2_0%] min-h-0 w-full">
+          <div className="flex flex-col items-center justify-center shrink-0 flex-[1_1_0%] min-h-0 w-full">
             <GameBoyControls
               onLeftPress={() => setTouchLeftPressed(true)}
               onLeftRelease={() => setTouchLeftPressed(false)}
