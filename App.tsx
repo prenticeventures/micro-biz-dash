@@ -153,10 +153,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-black flex items-center justify-center overflow-hidden font-sans select-none touch-none">
+    <div className={`h-screen w-screen bg-black ${isMobile ? 'flex flex-col' : 'flex items-center justify-center'} overflow-hidden font-sans select-none touch-none`}>
       
       {/* Retro TV/GameBoy Container */}
-      <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'max-w-full h-full flex flex-col' : 'max-w-[min(900px,110vh)]'} flex flex-col shrink-0`}>
+      <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'flex-1 flex flex-col min-h-0' : 'max-w-[min(900px,110vh)] flex flex-col shrink-0'}`}>
         
         {/* Screen Bezel - Takes exactly 2/3 of available space on mobile (accounting for container padding) */}
         <div className={`bg-black ${isMobile ? 'p-1.5' : 'p-2 sm:p-4'} ${isMobile ? 'rounded-xl' : 'rounded-[1.5rem] sm:rounded-[2rem]'} shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 ${isMobile ? 'flex-[2_1_0%] min-h-0' : 'flex-1 min-h-0'} flex flex-col`}>
