@@ -158,7 +158,7 @@ const App: React.FC = () => {
       {/* Retro TV/GameBoy Container */}
       <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'max-w-full max-h-full h-full flex flex-col' : 'max-w-[min(900px,110vh)]'} flex flex-col shrink-0`}>
         
-        {/* Screen Bezel - Takes ~2/3 of space on mobile */}
+        {/* Screen Bezel - Takes exactly 2/3 of space on mobile */}
         <div className={`bg-black ${isMobile ? 'p-1.5' : 'p-2 sm:p-4'} ${isMobile ? 'rounded-xl' : 'rounded-[1.5rem] sm:rounded-[2rem]'} shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 ${isMobile ? 'flex-[2_1_0%] min-h-0' : 'flex-1 min-h-0'} flex flex-col`}>
            
            {/* The Screen Itself */}
@@ -322,9 +322,9 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Game Boy Controls - Mobile Only - Takes ~1/3 of space */}
+        {/* Game Boy Controls - Mobile Only - Takes exactly 1/3 of space */}
         {isMobile && (
-          <div className="flex flex-col items-center justify-center px-2 shrink-0 flex-[1_1_0%] min-h-0">
+          <div className="flex flex-col items-center justify-center shrink-0 flex-[1_2_0%] min-h-0 w-full">
             <GameBoyControls
               onLeftPress={() => setTouchLeftPressed(true)}
               onLeftRelease={() => setTouchLeftPressed(false)}
