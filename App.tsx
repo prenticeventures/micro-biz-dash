@@ -159,10 +159,10 @@ const App: React.FC = () => {
       <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'max-w-full max-h-full h-full flex flex-col' : 'max-w-[min(900px,110vh)]'} flex flex-col shrink-0`}>
         
         {/* Screen Bezel */}
-        <div className={`bg-black ${isMobile ? 'p-1.5' : 'p-2 sm:p-4'} ${isMobile ? 'rounded-xl' : 'rounded-[1.5rem] sm:rounded-[2rem]'} shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 ${isMobile ? 'flex-1 min-h-0' : 'flex-1 min-h-0'} flex flex-col`}>
+        <div className={`bg-black ${isMobile ? 'p-1.5' : 'p-2 sm:p-4'} ${isMobile ? 'rounded-xl' : 'rounded-[1.5rem] sm:rounded-[2rem]'} shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 ${isMobile ? 'flex-[1_1_0%] min-h-0' : 'flex-1 min-h-0'} flex flex-col`}>
            
            {/* The Screen Itself */}
-           <div className={`relative ${isMobile ? 'w-full h-full' : 'aspect-[4/3] w-full'} overflow-hidden ${isMobile ? 'rounded-md' : 'rounded-lg sm:rounded-xl'} shadow-inner bg-black flex flex-col mx-auto`}>
+           <div className={`relative ${isMobile ? 'w-full flex-1 min-h-0' : 'aspect-[4/3] w-full'} overflow-hidden ${isMobile ? 'rounded-md' : 'rounded-lg sm:rounded-xl'} shadow-inner bg-black flex flex-col mx-auto`}>
               
               {/* HUD */}
               <div className="bg-[#333] text-white p-2 border-b-2 sm:border-b-4 border-black font-mono text-[0.6rem] sm:text-sm flex justify-between items-center z-10 shrink-0 relative h-7 sm:h-10">
@@ -189,7 +189,7 @@ const App: React.FC = () => {
               )}
 
               {/* Game Viewport */}
-              <div className="relative flex-1 w-full bg-black overflow-hidden flex items-center justify-center min-h-0">
+              <div className="relative flex-1 w-full bg-black overflow-hidden flex items-center justify-center min-h-0" style={{ minHeight: '200px' }}>
                 <GameCanvas 
                   status={status}
                   setStatus={setStatus}
@@ -324,7 +324,7 @@ const App: React.FC = () => {
 
         {/* Game Boy Controls - Mobile Only */}
         {isMobile && (
-          <div className="flex flex-col items-center justify-center py-3 px-2 shrink-0">
+          <div className="flex flex-col items-center justify-center py-2 px-2 shrink-0 flex-shrink-0" style={{ minHeight: '120px', maxHeight: '140px' }}>
             <GameBoyControls
               onLeftPress={() => setTouchLeftPressed(true)}
               onLeftRelease={() => setTouchLeftPressed(false)}
