@@ -21,7 +21,10 @@ export default defineConfig({
       },
     },
   ],
+  // Note: base setting doesn't affect public folder files
+  // Files in public/ are always copied to the root of the output directory
   base: './', // Ensures relative paths work for simple deployments
+  publicDir: 'public', // Explicitly set public directory (default, but explicit is clearer)
   server: {
     port: 3000
   }
