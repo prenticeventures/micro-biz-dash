@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import GameCanvas from './components/GameCanvas';
 import GameBoyControls from './components/GameBoyControls';
+import VictoryCelebration from './components/VictoryCelebration';
 import { GameStatus } from './types';
 import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
@@ -90,6 +91,7 @@ const App: React.FC = () => {
     // Sync mute state
     audioRef.current?.toggleMute(isMuted);
   }, [isMuted]);
+
 
   useEffect(() => {
     // Determine next level description for the completion screen
@@ -260,16 +262,10 @@ const App: React.FC = () => {
                 )}
 
                 {status === GameStatus.VICTORY && (
-                   <div className="absolute inset-0 bg-yellow-500/95 flex flex-col items-center justify-center text-white p-6 text-center z-30">
-                   <h2 className="text-2xl sm:text-5xl text-white mb-4 drop-shadow-[2px_2px_0_#000] animate-pulse">IPO SUCCESS! 🏆</h2>
-                   <p className="text-black font-bold mb-6 text-xs sm:text-base font-mono">You survived the 2026 Economy!</p>
-                   <button 
-                     onClick={handleRestart}
-                     className="px-6 py-3 bg-black text-yellow-400 text-xs sm:text-base font-bold rounded border-b-4 border-gray-700 active:border-0 active:translate-y-1"
-                   >
-                     NEW VENTURE ↺
-                   </button>
-                 </div>
+                  <VictoryCelebration 
+                    onRestart={handleRestart}
+                    score={score}
+                  />
                 )}
               </div>
               
