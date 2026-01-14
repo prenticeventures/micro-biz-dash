@@ -7,12 +7,16 @@ export default defineConfig({
     {
       name: 'inject-og-urls',
       transformIndexHtml(html) {
-        // Get the domain from environment variable or use default
-        const domain = process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}`
-          : process.env.OG_DOMAIN 
-          ? `https://${process.env.OG_DOMAIN}`
-          : 'https://www.microbizdash.com';
+        // For production, always use the production domain
+        // For preview deployments, use VERCEL_URL if available
+        const isProduction = process.env.VERCEL_ENV === 'production';
+        const domain = isProduction
+          ? 'https://www.microbizdash.com'
+          : process.env.VERCEL_URL 
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.OG_DOMAIN 
+              ? `https://${process.env.OG_DOMAIN}`
+              : 'https://www.microbizdash.com';
         
         return html.replace(
           /https:\/\/www\.microbizdash\.com/g,
