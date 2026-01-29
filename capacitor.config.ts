@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.microbizdash.app',
+  appId: 'com.microbizdash.game',
   appName: 'Micro-Biz Dash',
   webDir: 'dist',
   ios: {

@@ -30,6 +30,7 @@ interface GameCanvasProps {
   onScoreUpdate: (score: number) => void;
   onHealthUpdate: (health: number) => void;
   onMessage: (msg: string) => void;
+  onDeath?: () => void; // Callback when player dies
   audioManager: RetroAudio | null;
   // Touch control state (synced with keysRef)
   touchLeftPressed?: boolean;
@@ -45,6 +46,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   onScoreUpdate,
   onHealthUpdate,
   onMessage,
+  onDeath,
   audioManager,
   touchLeftPressed = false,
   touchRightPressed = false,
@@ -75,6 +77,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const cameraXRef = useRef<number>(0);
   const levelDataRef = useRef<LevelData | null>(null);
   const touchJumpHandledRef = useRef<boolean>(false);
+  const deathHandledRef = useRef<boolean>(false); // Prevent multiple death calls
 
   // Initialize Level
   useEffect(() => {
@@ -90,6 +93,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       playerRef.current.isDead = false;
       cameraXRef.current = 0;
       touchJumpHandledRef.current = false;
+      deathHandledRef.current = false; // Reset death flag when level starts
       
       onHealthUpdate(MAX_HEALTH);
     }
@@ -137,7 +141,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Physics & Logic
   const update = useCallback(() => {
+    // Check status first - if not playing, don't update
     if (status !== GameStatus.PLAYING || !levelDataRef.current) return;
+    
+    // Also check death flag - if death already handled, don't continue
+    if (deathHandledRef.current) return;
 
     const player = playerRef.current;
     
@@ -189,9 +197,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     });
 
-    // Death (Falling)
-    if (player.pos.y > CANVAS_HEIGHT) {
-      handleDamage(100);
+    // Death (Falling) - counts as a death
+    if (player.pos.y > CANVAS_HEIGHT && !deathHandledRef.current) {
+      deathHandledRef.current = true; // Prevent multiple calls
+      // Stop the game immediately
+      setStatus(GameStatus.MENU);
+      // Call death handler synchronously to ensure it executes
+      if (onDeath) {
+        try {
+          onDeath();
+        } catch (error) {
+          console.error('Error in onDeath callback:', error);
+          // Fallback to game over if callback fails
+          setStatus(GameStatus.GAME_OVER);
+        }
+      } else {
+        handleDamage(100); // Fallback if onDeath not provided
+      }
+      return; // Exit update immediately
     }
 
     // Entities
@@ -495,13 +518,27 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Helpers
   const handleDamage = (amount: number) => {
-    if (playerRef.current.isInvincible) return;
+    if (playerRef.current.isInvincible || deathHandledRef.current) return;
     playerRef.current.health -= amount;
     onHealthUpdate(playerRef.current.health);
     if (playerRef.current.health <= 0) {
-        audioManager?.playDamage();
-      setStatus(GameStatus.GAME_OVER);
+      // Health depleted - this counts as a death
+      deathHandledRef.current = true; // Prevent multiple calls
+      // Immediately stop the game loop
+      setStatus(GameStatus.MENU);
+      audioManager?.playDamage();
+      if (onDeath) {
+        try {
+          onDeath(); // Use death handler instead of directly setting GAME_OVER
+        } catch (error) {
+          console.error('Error in onDeath callback:', error);
+          setStatus(GameStatus.GAME_OVER); // Fallback
+        }
+      } else {
+        setStatus(GameStatus.GAME_OVER); // Fallback
+      }
     } else {
+      // Just took damage, not dead yet
       playerRef.current.vel.y = JUMP_FORCE / 2;
       playerRef.current.vel.x = -10;
       playerRef.current.isInvincible = true;

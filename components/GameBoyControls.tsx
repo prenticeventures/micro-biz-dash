@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface GameBoyControlsProps {
   onLeftPress: () => void;
@@ -24,18 +24,70 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
   const [leftPressed, setLeftPressed] = useState(false);
   const [rightPressed, setRightPressed] = useState(false);
   const [aPressed, setAPressed] = useState(false);
+  
+  // Track which button is currently being touched
+  const activeTouchRef = useRef<'left' | 'right' | 'a' | null>(null);
+
+  // Global touch end handler to catch touches that end outside the button
+  useEffect(() => {
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      // If a button was pressed but touch ended anywhere, release it
+      if (activeTouchRef.current === 'left' && leftPressed) {
+        setLeftPressed(false);
+        onLeftRelease();
+        activeTouchRef.current = null;
+      } else if (activeTouchRef.current === 'right' && rightPressed) {
+        setRightPressed(false);
+        onRightRelease();
+        activeTouchRef.current = null;
+      } else if (activeTouchRef.current === 'a' && aPressed) {
+        setAPressed(false);
+        onARelease();
+        activeTouchRef.current = null;
+      }
+    };
+
+    const handleGlobalTouchCancel = (e: TouchEvent) => {
+      // Same as touch end - release any active button
+      handleGlobalTouchEnd(e);
+    };
+
+    document.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleGlobalTouchCancel, { passive: true });
+
+    return () => {
+      document.removeEventListener('touchend', handleGlobalTouchEnd);
+      document.removeEventListener('touchcancel', handleGlobalTouchCancel);
+    };
+  }, [leftPressed, rightPressed, aPressed, onLeftRelease, onRightRelease, onARelease]);
 
   // Handle touch events to prevent default scrolling and handle press/release
-  const handleTouchStart = (e: React.TouchEvent, callback: () => void, setPressed: (val: boolean) => void) => {
+  const handleTouchStart = (e: React.TouchEvent, buttonType: 'left' | 'right' | 'a', callback: () => void, setPressed: (val: boolean) => void) => {
     e.preventDefault();
+    e.stopPropagation();
+    activeTouchRef.current = buttonType;
     setPressed(true);
     callback();
   };
 
-  const handleTouchEnd = (e: React.TouchEvent, callback: () => void, setPressed: (val: boolean) => void) => {
+  const handleTouchEnd = (e: React.TouchEvent, buttonType: 'left' | 'right' | 'a', callback: () => void, setPressed: (val: boolean) => void) => {
     e.preventDefault();
-    setPressed(false);
-    callback();
+    e.stopPropagation();
+    if (activeTouchRef.current === buttonType) {
+      setPressed(false);
+      callback();
+      activeTouchRef.current = null;
+    }
+  };
+
+  const handleTouchCancel = (e: React.TouchEvent, buttonType: 'left' | 'right' | 'a', callback: () => void, setPressed: (val: boolean) => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (activeTouchRef.current === buttonType) {
+      setPressed(false);
+      callback();
+      activeTouchRef.current = null;
+    }
   };
 
   return (
@@ -54,8 +106,9 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
         
         {/* Left Arrow Button - Larger for easier tapping */}
         <button
-          onTouchStart={(e) => handleTouchStart(e, onLeftPress, setLeftPressed)}
-          onTouchEnd={(e) => handleTouchEnd(e, onLeftRelease, setLeftPressed)}
+          onTouchStart={(e) => handleTouchStart(e, 'left', onLeftPress, setLeftPressed)}
+          onTouchEnd={(e) => handleTouchEnd(e, 'left', onLeftRelease, setLeftPressed)}
+          onTouchCancel={(e) => handleTouchCancel(e, 'left', onLeftRelease, setLeftPressed)}
           onMouseDown={() => { setLeftPressed(true); onLeftPress(); }}
           onMouseUp={() => { setLeftPressed(false); onLeftRelease(); }}
           onMouseLeave={() => { setLeftPressed(false); onLeftRelease(); }}
@@ -71,8 +124,9 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
 
         {/* Right Arrow Button - Larger for easier tapping */}
         <button
-          onTouchStart={(e) => handleTouchStart(e, onRightPress, setRightPressed)}
-          onTouchEnd={(e) => handleTouchEnd(e, onRightRelease, setRightPressed)}
+          onTouchStart={(e) => handleTouchStart(e, 'right', onRightPress, setRightPressed)}
+          onTouchEnd={(e) => handleTouchEnd(e, 'right', onRightRelease, setRightPressed)}
+          onTouchCancel={(e) => handleTouchCancel(e, 'right', onRightRelease, setRightPressed)}
           onMouseDown={() => { setRightPressed(true); onRightPress(); }}
           onMouseUp={() => { setRightPressed(false); onRightRelease(); }}
           onMouseLeave={() => { setRightPressed(false); onRightRelease(); }}
@@ -90,8 +144,9 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
       {/* A Button (Red, positioned on the right) with Mute button underneath */}
       <div className="relative flex-shrink-0 flex flex-col items-center">
         <button
-          onTouchStart={(e) => handleTouchStart(e, onAPress, setAPressed)}
-          onTouchEnd={(e) => handleTouchEnd(e, onARelease, setAPressed)}
+          onTouchStart={(e) => handleTouchStart(e, 'a', onAPress, setAPressed)}
+          onTouchEnd={(e) => handleTouchEnd(e, 'a', onARelease, setAPressed)}
+          onTouchCancel={(e) => handleTouchCancel(e, 'a', onARelease, setAPressed)}
           onMouseDown={() => { setAPressed(true); onAPress(); }}
           onMouseUp={() => { setAPressed(false); onARelease(); }}
           onMouseLeave={() => { setAPressed(false); onARelease(); }}
