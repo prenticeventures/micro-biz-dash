@@ -70,9 +70,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Initialize Audio Manager once
-    audioRef.current = new RetroAudio();
+    // Initialize Audio Manager once - guard against React Strict Mode double-initialization
+    if (!audioRef.current) {
+      audioRef.current = new RetroAudio();
+      console.log('🎵 Audio Manager created');
+    }
     return () => {
+      console.log('🛑 Cleanup: Stopping BGM');
       audioRef.current?.stopBGM();
     }
   }, []);
@@ -150,10 +154,12 @@ const App: React.FC = () => {
 
   // Handle music state based on game status
   useEffect(() => {
+    console.log('🎮 Game Status changed to:', status);
     // Stop music first to prevent double-starting
     audioRef.current?.stopBGM();
     
     if (status === GameStatus.PLAYING) {
+      console.log('▶️ Starting BGM');
       // Small delay to ensure previous music is stopped
       const timer = setTimeout(() => {
         audioRef.current?.startBGM();

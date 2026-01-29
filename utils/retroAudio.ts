@@ -60,7 +60,12 @@ export class RetroAudio {
 
   public stopBGM() {
     this.isPlaying = false;
-    if (this.timerID) window.clearTimeout(this.timerID);
+    if (this.timerID) {
+      window.clearTimeout(this.timerID);
+      this.timerID = undefined;
+    }
+    // Reset the scheduler state
+    this.current16thNote = 0;
   }
 
   private nextNote() {
