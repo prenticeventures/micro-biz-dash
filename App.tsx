@@ -91,84 +91,57 @@ const App: React.FC = () => {
   // Detect mobile device - prioritize user agent over touch capability
   // Many desktop browsers (especially Macs) falsely report touch capability
   useEffect(() => {
+    let lastResult: boolean | null = null;
+    
     const checkMobile = () => {
-      // Check user agent FIRST - this is the most reliable indicator
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
       
-      // Specific mobile device patterns - comprehensive list
+      // Mobile device patterns
       const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini|Windows Phone/i.test(userAgent);
-      
-      // iOS Safari and Chrome user agents include "Mobile"
-      // But Macs don't include Mobile, they have "Macintosh"
       const hasMobileKeyword = /Mobile/i.test(userAgent);
       const hasMacKeyword = /Macintosh/i.test(userAgent);
       const hasWindowsDesktop = /Windows NT/i.test(userAgent);
       const hasLinuxDesktop = /Linux.*X11|X11.*Linux/i.test(userAgent);
       
-      // Mobile browser = has "Mobile" keyword but NOT a desktop OS (except Macs with touchscreens)
       const isMobileBrowser = hasMobileKeyword && !hasWindowsDesktop && !hasLinuxDesktop;
-      
-      // Check if it's a tablet (iPad often reports as Macintosh now, but has touch)
-      // Macs with trackpads report maxTouchPoints=0, real iPads report > 1
       const isTablet = /iPad/i.test(userAgent) || 
                        (hasMacKeyword && navigator.maxTouchPoints > 1);
       
-      // Screen size check - consider both dimensions for landscape mode
       const smallerDimension = Math.min(window.innerWidth, window.innerHeight);
       const isSmallScreen = smallerDimension <= 500 || window.innerWidth <= 768;
       
-      // Standalone mode check (PWA / Home Screen app)
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                           (window.navigator as any).standalone === true;
       
-      // Final determination:
-      // - User agent explicitly says mobile device = mobile
-      // - Has "Mobile" keyword (not on desktop OS) = mobile  
-      // - Tablet (iPad) = mobile
-      // - Small screen + touch = likely mobile
-      // - PWA standalone mode + touch = mobile
-      // - But Mac trackpads (maxTouchPoints usually 0 or handled by hasMacKeyword check) = NOT mobile
       const isMobileDevice = isMobileUserAgent || 
                             isMobileBrowser || 
                             isTablet || 
                             (isSmallScreen && navigator.maxTouchPoints > 0 && !hasMacKeyword) ||
                             (isStandalone && navigator.maxTouchPoints > 0);
       
-      // Debug logging
-      console.log('Mobile Detection Debug:', {
-        userAgent: userAgent.substring(0, 100),
-        isMobileUserAgent,
-        isMobileBrowser,
-        isTablet,
-        isSmallScreen,
-        smallerDimension,
-        windowWidth: window.innerWidth,
-        maxTouchPoints: navigator.maxTouchPoints,
-        hasMacKeyword,
-        isStandalone,
-        isMobileDevice,
-        result: isMobileDevice ? 'MOBILE' : 'DESKTOP'
-      });
-      
-      setIsMobile(isMobileDevice);
+      // Only update state if value actually changed (prevents unnecessary re-renders)
+      if (lastResult !== isMobileDevice) {
+        lastResult = isMobileDevice;
+        setIsMobile(isMobileDevice);
+      }
     };
     
-    // Check immediately
+    // Check once on mount
     checkMobile();
     
-    // Also check on load
-    if (document.readyState === 'complete') {
-      checkMobile();
-    } else {
-      window.addEventListener('load', checkMobile);
-    }
+    // Debounced resize handler to prevent spam
+    let resizeTimeout: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(checkMobile, 150);
+    };
     
-    window.addEventListener('resize', checkMobile);
+    window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', checkMobile);
     
     return () => {
-      window.removeEventListener('load', checkMobile);
-      window.removeEventListener('resize', checkMobile);
+      clearTimeout(resizeTimeout);
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', checkMobile);
     };
   }, []);
