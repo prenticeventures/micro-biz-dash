@@ -26,6 +26,10 @@ const App: React.FC = () => {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   
+  // Guest mode state - for playing level 1 without login
+  const [showSignupPrompt, setShowSignupPrompt] = useState<boolean>(false);
+  const [guestScore, setGuestScore] = useState<number>(0); // Store score from level 1 to save after signup
+  
   // Backend integration state
   const [savedGame, setSavedGame] = useState<GameSession | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -41,14 +45,14 @@ const App: React.FC = () => {
   // Audio Manager Ref
   const audioRef = useRef<RetroAudio | null>(null);
 
-  // Check authentication and load saved game on mount
+  // Check authentication silently on mount (don't block the app)
   useEffect(() => {
-    getCurrentUser().then(async (user) => {
-      setUser(user);
+    getCurrentUser().then(async (currentUser) => {
+      setUser(currentUser);
       setIsCheckingAuth(false);
       
-      // Load saved game if user is authenticated
-      if (user) {
+      // Load saved game and leaderboard if user is authenticated
+      if (currentUser) {
         const saved = await loadGameState();
         setSavedGame(saved);
         setHasCheckedSavedGame(true);
@@ -65,6 +69,9 @@ const App: React.FC = () => {
         return () => {
           unsubscribe();
         };
+      } else {
+        // Guest user - mark as checked so menu shows correctly
+        setHasCheckedSavedGame(true);
       }
     });
   }, []);
@@ -81,32 +88,42 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Detect mobile device - simplified and more aggressive
+  // Detect mobile device - prioritize user agent over touch capability
+  // Many desktop browsers (especially Macs) falsely report touch capability
   useEffect(() => {
     const checkMobile = () => {
-      // Check user agent
+      // Check user agent FIRST - this is the most reliable indicator
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
-      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS|EdgiOS/i.test(userAgent);
       
-      // Check for touch capability - primary indicator for mobile
-      const hasTouch = 'ontouchstart' in window || 
-                       (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || 
-                       ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
+      // Specific mobile device patterns (be precise to avoid false positives)
+      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
       
-      // Check screen size
-      const isSmallScreen = window.innerWidth <= 1024;
+      // Check if it's explicitly a mobile browser variant
+      const isMobileBrowser = /Mobile|mobile|CriOS|FxiOS|EdgiOS/i.test(userAgent) && 
+                              !/Macintosh|Windows NT|Linux x86/i.test(userAgent);
       
-      // Simplified: prioritize touch capability - if it has touch, it's mobile
-      // Also check user agent as backup
-      // Screen size is less important since modern phones can have large screens
-      const isMobileDevice = hasTouch || isMobileUserAgent || isSmallScreen;
+      // Check if it's a tablet (iPad often reports as Macintosh now)
+      const isTablet = /iPad/i.test(userAgent) || 
+                       (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1);
+      
+      // Screen size check - only consider very small screens as mobile indicator
+      const isVerySmallScreen = window.innerWidth <= 768;
+      
+      // Final determination:
+      // - User agent says mobile device OR mobile browser variant = mobile
+      // - Tablet = mobile (for touch controls)
+      // - Very small screen + touch = likely mobile
+      // - DO NOT use touch alone (Macs have touch trackpads)
+      const isMobileDevice = isMobileUserAgent || isMobileBrowser || isTablet || 
+                            (isVerySmallScreen && navigator.maxTouchPoints > 0);
       
       // Debug logging
       console.log('Mobile Detection Debug:', {
         userAgent: userAgent.substring(0, 100),
         isMobileUserAgent,
-        hasTouch,
-        isSmallScreen,
+        isMobileBrowser,
+        isTablet,
+        isVerySmallScreen,
         windowWidth: window.innerWidth,
         maxTouchPoints: navigator.maxTouchPoints,
         isMobileDevice,
@@ -298,6 +315,13 @@ const App: React.FC = () => {
   };
 
   const handleNextLevel = async () => {
+    // If guest user completing level 1, show signup prompt instead
+    if (!user && level === 1) {
+      setGuestScore(score); // Save their score to restore after signup
+      setShowSignupPrompt(true);
+      return;
+    }
+    
     // Save game state before moving to next level
     if (user) {
       await saveCurrentGameState();
@@ -315,6 +339,42 @@ const App: React.FC = () => {
     
     setLevel(l => l + 1);
     setHealth(3); // Reset health for new level
+    setStatus(GameStatus.PLAYING);
+    gameStartTimeRef.current = Date.now();
+  };
+  
+  // Handle successful authentication from signup prompt
+  const handleGuestAuthenticated = async (authenticatedUser: UserProfile) => {
+    setUser(authenticatedUser);
+    setShowSignupPrompt(false);
+    
+    // Save their level 1 score to the database
+    try {
+      await startNewGame();
+      const playtimeSeconds = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+      await updateUserStats(
+        guestScore,
+        1, // level 1
+        playtimeSeconds,
+        guestScore,
+        false
+      );
+    } catch (error) {
+      console.error('Failed to save guest score:', error);
+    }
+    
+    // Load leaderboard now that they're logged in
+    const leaderboardData = await getLeaderboard();
+    setLeaderboard(leaderboardData);
+    
+    // Subscribe to leaderboard updates
+    subscribeToLeaderboard((entries) => {
+      setLeaderboard(entries);
+    });
+    
+    // Continue to level 2!
+    setLevel(2);
+    setHealth(3);
     setStatus(GameStatus.PLAYING);
     gameStartTimeRef.current = Date.now();
   };
@@ -397,7 +457,7 @@ const App: React.FC = () => {
     return RESEARCH_SNIPPETS.DEFAULT_DEATH;
   };
 
-  // Show auth screen if not authenticated
+  // Show loading screen only while checking auth (brief)
   if (isCheckingAuth) {
     return (
       <div className="h-screen w-screen bg-black flex items-center justify-center">
@@ -406,13 +466,52 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user) {
+  // Show signup prompt when guest completes level 1
+  if (showSignupPrompt) {
     return (
-      <AuthScreen 
-        onAuthenticated={(user) => {
-          setUser(user);
-        }} 
-      />
+      <div className="h-screen w-screen bg-black flex items-center justify-center p-4">
+        <div className="bg-gray-800 border-4 border-yellow-400 rounded-lg p-6 sm:p-8 max-w-lg w-full text-center">
+          {/* Celebration Header */}
+          <div className="mb-6">
+            <h2 className="text-2xl sm:text-3xl text-yellow-400 mb-2 font-['Press_Start_2P'] animate-bounce">
+              LEVEL 1 COMPLETE!
+            </h2>
+            <div className="text-4xl mb-2">🎉🚀🎉</div>
+            <p className="text-green-400 font-bold text-lg">Score: {guestScore} pts</p>
+          </div>
+          
+          {/* Sign up prompt */}
+          <div className="bg-black/50 p-4 rounded-lg mb-6 border border-gray-600">
+            <p className="text-white text-sm sm:text-base mb-2">
+              Nice work, entrepreneur!
+            </p>
+            <p className="text-gray-300 text-xs sm:text-sm">
+              Create a free account to continue to Level 2, save your progress, and compete on the leaderboard!
+            </p>
+          </div>
+          
+          {/* Auth Screen embedded */}
+          <AuthScreen 
+            onAuthenticated={handleGuestAuthenticated}
+            embedded={true}
+          />
+          
+          {/* Option to restart as guest */}
+          <button
+            onClick={() => {
+              setShowSignupPrompt(false);
+              setLevel(1);
+              setScore(0);
+              setHealth(3);
+              setLives(3);
+              setStatus(GameStatus.MENU);
+            }}
+            className="mt-4 text-gray-400 hover:text-white text-xs underline"
+          >
+            No thanks, restart from Level 1
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -486,9 +585,10 @@ const App: React.FC = () => {
                         onClick={handleStart}
                         className="px-6 sm:px-8 py-2 sm:py-3 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-base font-bold rounded border-b-4 border-red-800 active:border-0 active:translate-y-1 transition-all whitespace-nowrap"
                       >
-                        START GAME
+                        {user ? 'START GAME' : 'PLAY LEVEL 1 FREE'}
                       </button>
-                      {hasCheckedSavedGame && savedGame && savedGame.level > 1 && (
+                      {/* Resume button only for logged-in users with saved games */}
+                      {user && hasCheckedSavedGame && savedGame && savedGame.level > 1 && (
                         <button 
                           onClick={handleResumeGame}
                           className="px-6 sm:px-8 py-2 sm:py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-base font-bold rounded border-b-4 border-blue-800 active:border-0 active:translate-y-1 transition-all whitespace-nowrap"
@@ -497,7 +597,14 @@ const App: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    {leaderboard.length > 0 && (
+                    {/* Guest mode notice */}
+                    {!user && (
+                      <div className="mt-3 sm:mt-4 text-[0.55rem] sm:text-xs text-gray-400 font-mono">
+                        Sign up after Level 1 to save progress & compete!
+                      </div>
+                    )}
+                    {/* Leaderboard only for logged-in users */}
+                    {user && leaderboard.length > 0 && (
                       <div className="mt-4 sm:mt-8 bg-black/60 p-3 sm:p-4 rounded border-2 border-yellow-400/50 max-w-md">
                         <h3 className="text-yellow-400 font-bold text-[0.65rem] sm:text-sm mb-1.5 sm:mb-2 font-['Press_Start_2P']">LEADERBOARD</h3>
                         <div className="space-y-1 text-[0.6rem] sm:text-xs font-mono">

@@ -10,9 +10,10 @@ import type { UserProfile } from '../types/database';
 
 interface AuthScreenProps {
   onAuthenticated: (user: UserProfile) => void;
+  embedded?: boolean; // When true, renders inline without full-screen overlay
 }
 
-export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
+export function AuthScreen({ onAuthenticated, embedded = false }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -83,6 +84,98 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
       }
   };
 
+  // Embedded mode - render inline without overlay
+  if (embedded) {
+    return (
+      <div className="w-full">
+        <h2 className="text-lg sm:text-xl text-yellow-400 mb-4 text-center font-['Press_Start_2P']">
+          {isLogin ? 'LOGIN' : 'SIGN UP'}
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {!isLogin && (
+            <div>
+              <label className="block text-white text-xs font-bold mb-1">
+                Game Name
+              </label>
+              <input
+                type="text"
+                value={gameName}
+                onChange={(e) => setGameName(e.target.value)}
+                placeholder="Your display name"
+                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-yellow-400 focus:outline-none text-sm"
+                required={!isLogin}
+                maxLength={20}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-white text-xs font-bold mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-yellow-400 focus:outline-none text-sm"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-white text-xs font-bold mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-yellow-400 focus:outline-none text-sm"
+              required
+              minLength={6}
+            />
+          </div>
+
+          {success && (
+            <div className="bg-green-900/50 border border-green-600 text-green-200 px-3 py-2 rounded text-xs">
+              {success}
+            </div>
+          )}
+          {error && (
+            <div className="bg-red-900/50 border border-red-600 text-red-200 px-3 py-2 rounded text-xs">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded border-b-4 border-yellow-700 active:border-0 active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {loading ? '...' : isLogin ? 'LOGIN' : 'SIGN UP'}
+          </button>
+        </form>
+
+        <div className="mt-3 text-center">
+          <button
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+              setSuccess('');
+            }}
+            className="text-gray-400 hover:text-white text-xs underline"
+          >
+            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Full-screen mode - original behavior
   return (
     <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50">
       <div className="bg-gray-800 border-2 border-gray-600 rounded-lg p-6 sm:p-8 max-w-md w-full mx-4">
