@@ -95,15 +95,32 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       touchJumpHandledRef.current = false;
       deathHandledRef.current = false; // Reset death flag when level starts
       
+      // IMPORTANT: Clear all keyboard state when starting a level
+      // This fixes the bug where keys pressed during signup form stay "stuck"
+      keysRef.current = {};
+      
       onHealthUpdate(MAX_HEALTH);
     }
   }, [level, status, onHealthUpdate]); 
 
   // Input Handling - Keyboard
   useEffect(() => {
+    // Only handle keyboard when game is playing
+    if (status !== GameStatus.PLAYING) {
+      // Clear keys when not playing to prevent stuck keys
+      keysRef.current = {};
+      return;
+    }
+    
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Only register game keys, ignore if typing in an input
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+      
       keysRef.current[e.code] = true;
-      if (e.code === 'Space' && status === GameStatus.PLAYING) {
+      if (e.code === 'Space') {
         if (playerRef.current.isGrounded) {
           playerRef.current.vel.y = JUMP_FORCE;
           playerRef.current.isGrounded = false;
@@ -120,6 +137,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      // Clear keys when unmounting/changing status
+      keysRef.current = {};
     };
   }, [status, audioManager]);
 
@@ -153,10 +172,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     player.vel.y += GRAVITY;
 
     // Movement (keyboard or touch)
-    if (keysRef.current['ArrowRight'] || keysRef.current['KeyD'] || touchRightPressed) {
+    const rightKey = keysRef.current['ArrowRight'] || keysRef.current['KeyD'];
+    const leftKey = keysRef.current['ArrowLeft'] || keysRef.current['KeyA'];
+    
+    // Debug: Log what's causing movement (only once per second to avoid spam)
+    if ((rightKey || touchRightPressed || leftKey || touchLeftPressed) && Math.random() < 0.02) {
+      console.log('Movement Debug:', {
+        rightKey,
+        leftKey,
+        touchRightPressed,
+        touchLeftPressed,
+        keysRef: Object.keys(keysRef.current).filter(k => keysRef.current[k])
+      });
+    }
+    
+    if (rightKey || touchRightPressed) {
       player.vel.x = MOVE_SPEED;
       player.direction = 1;
-    } else if (keysRef.current['ArrowLeft'] || keysRef.current['KeyA'] || touchLeftPressed) {
+    } else if (leftKey || touchLeftPressed) {
       player.vel.x = -MOVE_SPEED;
       player.direction = -1;
     } else {
