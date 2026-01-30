@@ -95,27 +95,44 @@ const App: React.FC = () => {
       // Check user agent FIRST - this is the most reliable indicator
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
       
-      // Specific mobile device patterns (be precise to avoid false positives)
-      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+      // Specific mobile device patterns - comprehensive list
+      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini|Windows Phone/i.test(userAgent);
       
-      // Check if it's explicitly a mobile browser variant
-      const isMobileBrowser = /Mobile|mobile|CriOS|FxiOS|EdgiOS/i.test(userAgent) && 
-                              !/Macintosh|Windows NT|Linux x86/i.test(userAgent);
+      // iOS Safari and Chrome user agents include "Mobile"
+      // But Macs don't include Mobile, they have "Macintosh"
+      const hasMobileKeyword = /Mobile/i.test(userAgent);
+      const hasMacKeyword = /Macintosh/i.test(userAgent);
+      const hasWindowsDesktop = /Windows NT/i.test(userAgent);
+      const hasLinuxDesktop = /Linux.*X11|X11.*Linux/i.test(userAgent);
       
-      // Check if it's a tablet (iPad often reports as Macintosh now)
+      // Mobile browser = has "Mobile" keyword but NOT a desktop OS (except Macs with touchscreens)
+      const isMobileBrowser = hasMobileKeyword && !hasWindowsDesktop && !hasLinuxDesktop;
+      
+      // Check if it's a tablet (iPad often reports as Macintosh now, but has touch)
+      // Macs with trackpads report maxTouchPoints=0, real iPads report > 1
       const isTablet = /iPad/i.test(userAgent) || 
-                       (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1);
+                       (hasMacKeyword && navigator.maxTouchPoints > 1);
       
-      // Screen size check - only consider very small screens as mobile indicator
-      const isVerySmallScreen = window.innerWidth <= 768;
+      // Screen size check - consider both dimensions for landscape mode
+      const smallerDimension = Math.min(window.innerWidth, window.innerHeight);
+      const isSmallScreen = smallerDimension <= 500 || window.innerWidth <= 768;
+      
+      // Standalone mode check (PWA / Home Screen app)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                          (window.navigator as any).standalone === true;
       
       // Final determination:
-      // - User agent says mobile device OR mobile browser variant = mobile
-      // - Tablet = mobile (for touch controls)
-      // - Very small screen + touch = likely mobile
-      // - DO NOT use touch alone (Macs have touch trackpads)
-      const isMobileDevice = isMobileUserAgent || isMobileBrowser || isTablet || 
-                            (isVerySmallScreen && navigator.maxTouchPoints > 0);
+      // - User agent explicitly says mobile device = mobile
+      // - Has "Mobile" keyword (not on desktop OS) = mobile  
+      // - Tablet (iPad) = mobile
+      // - Small screen + touch = likely mobile
+      // - PWA standalone mode + touch = mobile
+      // - But Mac trackpads (maxTouchPoints usually 0 or handled by hasMacKeyword check) = NOT mobile
+      const isMobileDevice = isMobileUserAgent || 
+                            isMobileBrowser || 
+                            isTablet || 
+                            (isSmallScreen && navigator.maxTouchPoints > 0 && !hasMacKeyword) ||
+                            (isStandalone && navigator.maxTouchPoints > 0);
       
       // Debug logging
       console.log('Mobile Detection Debug:', {
@@ -123,9 +140,12 @@ const App: React.FC = () => {
         isMobileUserAgent,
         isMobileBrowser,
         isTablet,
-        isVerySmallScreen,
+        isSmallScreen,
+        smallerDimension,
         windowWidth: window.innerWidth,
         maxTouchPoints: navigator.maxTouchPoints,
+        hasMacKeyword,
+        isStandalone,
         isMobileDevice,
         result: isMobileDevice ? 'MOBILE' : 'DESKTOP'
       });
@@ -469,24 +489,24 @@ const App: React.FC = () => {
   // Show signup prompt when guest completes level 1
   if (showSignupPrompt) {
     return (
-      <div className="h-screen w-screen bg-black flex items-center justify-center p-4">
-        <div className="bg-gray-800 border-4 border-yellow-400 rounded-lg p-6 sm:p-8 max-w-lg w-full text-center">
-          {/* Celebration Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl sm:text-3xl text-yellow-400 mb-2 font-['Press_Start_2P'] animate-bounce">
+      <div className="min-h-[100dvh] w-screen bg-black overflow-y-auto py-4 px-4">
+        <div className="bg-gray-800 border-4 border-yellow-400 rounded-lg p-4 sm:p-6 max-w-lg w-full mx-auto text-center">
+          {/* Celebration Header - smaller on mobile */}
+          <div className="mb-4">
+            <h2 className="text-lg sm:text-2xl text-yellow-400 mb-1 font-['Press_Start_2P']">
               LEVEL 1 COMPLETE!
             </h2>
-            <div className="text-4xl mb-2">🎉🚀🎉</div>
-            <p className="text-green-400 font-bold text-lg">Score: {guestScore} pts</p>
+            <div className="text-2xl sm:text-4xl mb-1">🎉🚀🎉</div>
+            <p className="text-green-400 font-bold text-sm sm:text-lg">Score: {guestScore} pts</p>
           </div>
           
-          {/* Sign up prompt */}
-          <div className="bg-black/50 p-4 rounded-lg mb-6 border border-gray-600">
-            <p className="text-white text-sm sm:text-base mb-2">
+          {/* Sign up prompt - more compact */}
+          <div className="bg-black/50 p-3 rounded-lg mb-4 border border-gray-600">
+            <p className="text-white text-xs sm:text-sm mb-1">
               Nice work, entrepreneur!
             </p>
-            <p className="text-gray-300 text-xs sm:text-sm">
-              Create a free account to continue to Level 2, save your progress, and compete on the leaderboard!
+            <p className="text-gray-300 text-[0.65rem] sm:text-xs">
+              Create a free account to continue to Level 2 and save your progress!
             </p>
           </div>
           
@@ -506,7 +526,7 @@ const App: React.FC = () => {
               setLives(3);
               setStatus(GameStatus.MENU);
             }}
-            className="mt-4 text-gray-400 hover:text-white text-xs underline"
+            className="mt-3 text-gray-400 hover:text-white text-xs underline"
           >
             No thanks, restart from Level 1
           </button>
