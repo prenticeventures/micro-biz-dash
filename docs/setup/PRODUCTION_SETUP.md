@@ -1,10 +1,12 @@
 # Production Environment Setup
 
-**Last Updated:** January 27, 2026
+**Last Updated:** February 2, 2026
 
 ## Overview
 
-This guide covers setting up and deploying Micro-Biz Dash to production.
+This guide covers setting up and testing Micro-Biz Dash with the production Supabase project.
+
+---
 
 ## Production Database Status ✅
 
@@ -12,18 +14,22 @@ This guide covers setting up and deploying Micro-Biz Dash to production.
 
 - ✅ **Tables:** All 3 tables exist (users, user_stats, game_sessions)
 - ✅ **Trigger:** `on_auth_user_created` is ENABLED
-- ✅ **Function:** `handle_new_user()` exists
-- ✅ **RLS Policies:** All 8 policies are configured correctly
+- ✅ **Function:** `handle_new_user()` with error handling
+- ✅ **RLS Policies:** All 8 policies configured
 - ✅ **Email Confirmation:** Enabled (for production security)
 
 **Production Project:**
-- **Project ID:** `zbtbtmybzuutxfntdyvp`
-- **URL:** `https://zbtbtmybzuutxfntdyvp.supabase.co`
-- **Status:** ✅ Ready for production use
+| Property | Value |
+|----------|-------|
+| Project ID | `zbtbtmybzuutxfntdyvp` |
+| URL | https://zbtbtmybzuutxfntdyvp.supabase.co |
+| Dashboard | https://supabase.com/dashboard/project/zbtbtmybzuutxfntdyvp |
+
+---
 
 ## Environment Configuration
 
-### For Local Development Testing (Production)
+### For Local Testing with Production
 
 To test production locally, update `.env.local`:
 
@@ -33,129 +39,114 @@ VITE_SUPABASE_URL=https://zbtbtmybzuutxfntdyvp.supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
 ```
 
-**Note:** Email confirmation is enabled in production, so you'll need to check your email for confirmation links when testing.
+Or use the switch script:
+```bash
+./scripts/switch-env.sh prod
+npm run dev
+```
+
+**Note:** Email confirmation is enabled in production. You'll need to check your email for confirmation links.
 
 ### For Production Deployment
 
-Production deployments should use environment variables set in your hosting platform:
+Set environment variables in your hosting platform:
 
 **Vercel:**
-- Go to Project Settings → Environment Variables
-- Add:
-  - `VITE_SUPABASE_URL` = `https://zbtbtmybzuutxfntdyvp.supabase.co`
-  - `VITE_SUPABASE_ANON_KEY` = `sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS`
+- Project Settings → Environment Variables
 
 **Netlify:**
-- Go to Site Settings → Environment Variables
-- Add the same variables as above
+- Site Settings → Environment Variables
 
-**Other Platforms:**
-- Set environment variables according to your platform's documentation
-- Make sure variables are prefixed with `VITE_` so Vite includes them in the build
+**Variables to set:**
+```
+VITE_SUPABASE_URL=https://zbtbtmybzuutxfntdyvp.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
+```
 
-## Production Checklist
+---
 
-### Pre-Deployment
+## Production vs Development
 
-- [x] Production database schema applied
-- [x] Trigger enabled and working
-- [x] Trigger function updated with error handling (2026-01-27)
-- [x] RLS policies configured
-- [x] Email confirmation enabled
-- [x] Code retry timeout increased for production (2026-01-27)
-- [ ] Test authentication flow in production ⏳ **BLOCKED: Rate limit**
-- [ ] Test game state saving/loading
-- [ ] Test leaderboard functionality
-- [ ] Verify iOS app uses production backend (if applicable)
+| Feature | Development | Production |
+|---------|-------------|------------|
+| Project | `micro-biz-dash-dev` | `micro-biz-dash` |
+| Email confirmation | Disabled | Enabled |
+| Data | Test data | Real users |
+| URL | vgkpbslbfvcwvlmwkowj.supabase.co | zbtbtmybzuutxfntdyvp.supabase.co |
 
-### Deployment Steps
+---
 
-1. **Build Production Bundle**
+## Testing Production Locally
+
+1. **Switch to production config:**
    ```bash
-   npm run build
+   ./scripts/switch-env.sh prod
    ```
-   This creates an optimized production build in `dist/` folder.
 
-2. **Set Environment Variables**
-   - Configure production environment variables in your hosting platform
-   - Ensure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set
+2. **Restart dev server:**
+   ```bash
+   npm run dev
+   ```
 
-3. **Deploy**
-   - Upload `dist/` folder to your hosting platform
-   - Or use platform-specific deployment commands
+3. **Test authentication:**
+   - Sign up with a real email
+   - Check email for confirmation link
+   - Click link to confirm
+   - Log in
 
-4. **Verify Deployment**
-   - Test signup/login flow
-   - Verify game saves work
-   - Check leaderboard displays correctly
+4. **Test game features:**
+   - Play as guest (Level 1)
+   - Sign up to save progress
+   - Test game state saving
+   - Check leaderboard
 
-## Testing Production
+5. **Switch back to development:**
+   ```bash
+   ./scripts/switch-env.sh dev
+   ```
 
-### Test Authentication
+---
 
-1. Switch `.env.local` to production config
-2. Restart dev server: `npm run dev`
-3. Try signing up with a new email
-4. Check email for confirmation link
-5. Click confirmation link
-6. Try logging in
-
-### Test Game Features
-
-1. Sign up and log in
-2. Play through a level
-3. Check that game state saves
-4. Close and reopen app
-5. Verify "Resume Game" button appears
-6. Complete a level and check stats update
-7. Check leaderboard displays your score
-
-## Important Notes
+## Security Notes
 
 ### Email Confirmation
+- **Production has email confirmation ENABLED** - this is correct for security
+- Users must click email link before they can log in
+- Prevents spam accounts
 
-**Production has email confirmation ENABLED** - this is correct for security.
+### Row Level Security (RLS)
+- Users can only access their own data
+- Leaderboard is public read-only (scores only)
+- All policies are enabled and tested
 
-- Users must click email confirmation link before they can log in
-- This prevents spam accounts
-- Email rate limit: 1 email per minute per address
+### Guest Mode
+- Users can play Level 1 without signing up
+- Progress not saved for guests
+- Must sign up to access full game
 
-### Data Isolation
-
-- **Development:** Uses `micro-biz-dash-dev` project (test data)
-- **Production:** Uses `micro-biz-dash` project (real user data)
-- These are completely separate - no data mixing
-
-### Security
-
-- Production uses Row Level Security (RLS) - users can only access their own data
-- Leaderboard is public read-only (game names and scores only)
-- All authentication handled securely by Supabase Auth
+---
 
 ## Troubleshooting
 
+### Can't Log In After Signup
+- Check email for confirmation link (including spam)
+- Production requires email confirmation
+- Click the link, then try logging in
+
 ### "User profile was not created by trigger"
+- This issue was fixed (Jan 29, 2026)
+- If it occurs, check trigger is enabled in dashboard
+- See [TROUBLESHOOTING_AUTH.md](../TROUBLESHOOTING_AUTH.md)
 
-**If this happens in production:**
-1. Check trigger exists: Run diagnostic query in production SQL Editor
-2. Verify trigger is enabled
-3. Check function exists
+### Wrong Environment
+- Verify `.env.local` has correct URLs
+- Restart dev server after changes
+- Check browser console for Supabase URL
 
-### Email Confirmation Issues
+---
 
-- Users must check their email (including spam folder)
-- Rate limit: 1 email per minute per address
-- If testing, use dev environment where email confirmation is disabled
+## Related Documentation
 
-### Environment Variables Not Working
-
-- Make sure variables are prefixed with `VITE_`
-- Restart dev server after changing `.env.local`
-- In production, verify variables are set in hosting platform settings
-
-## Next Steps After Production Setup
-
-1. ✅ Monitor production database for issues
-2. ✅ Set up error tracking (optional)
-3. ✅ Monitor user signups and engagement
-4. ✅ Plan for scaling if needed
+- [Deployment Checklist](../DEPLOYMENT_CHECKLIST.md) - Full deployment steps
+- [Environments Guide](ENVIRONMENTS.md) - Dev vs Prod explained
+- [Backend Setup](BACKEND_SETUP.md) - Initial Supabase setup

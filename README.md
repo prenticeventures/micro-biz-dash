@@ -9,12 +9,13 @@ A retro-style platformer game built with React, TypeScript, and Capacitor. Avail
 ## 🎮 About
 
 Micro-Biz Dash is a retro platformer game featuring:
-- 5 challenging levels
-- Retro Game Boy-style controls
+- 5 challenging levels themed around building a business
+- Guest mode - play Level 1 free before signing up
+- Retro Game Boy-style controls (keyboard + touch)
 - Victory celebration animations
-- Score tracking and leaderboards
+- Score tracking and public leaderboards
 - Save/load game state
-- User authentication
+- User authentication with Supabase
 
 ## 🚀 Quick Start
 
@@ -83,13 +84,19 @@ Micro-Biz Dash is a retro platformer game featuring:
 
 ## 🎯 Current Status
 
-- ✅ **Web App** - Fully functional
+**Last Updated:** February 2, 2026
+
+- ✅ **Web App** - Fully functional with guest mode
 - ✅ **iOS App** - Built and tested
-- ✅ **App Store** - Submitted for review (January 22, 2026)
+- ✅ **App Store** - Submitted for review
 - ✅ **Backend** - Supabase integration complete
-- ✅ **Authentication** - User sign up/login working
+- ✅ **Authentication** - User sign up/login working (fixed Jan 29)
+- ✅ **Guest Mode** - Play Level 1 before signup (added Jan 30)
+- ✅ **Mobile Controls** - Touch controls optimized (fixed Jan 30)
 - ✅ **Game State** - Save/load functionality
 - ✅ **Statistics** - Leaderboard and stats tracking
+
+See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for detailed status.
 
 ## 📁 Project Structure
 

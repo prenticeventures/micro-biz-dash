@@ -1,54 +1,78 @@
 # Documentation Index
 
-This directory contains all project documentation organized by category.
+**Last Updated:** February 2, 2026
 
-## 📁 Directory Structure
+## Quick Links
 
-### `/setup` - Setup Guides
-Step-by-step guides for setting up the project:
+**Start Here:**
+- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current state of the project
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Deploy to production
 
-- **[BACKEND_SETUP.md](setup/BACKEND_SETUP.md)** - Complete Supabase backend setup
-- **[IOS_SETUP.md](setup/IOS_SETUP.md)** - iOS app setup with Capacitor
-- **[ENVIRONMENTS.md](setup/ENVIRONMENTS.md)** - Development vs Production environments
-- **[MCP_CONFIGURATION.md](setup/MCP_CONFIGURATION.md)** - Model Context Protocol setup
+---
 
-### `/app-store` - App Store Documentation
-Guides for App Store submission and management:
+## Directory Structure
 
-- **[SUBMISSION_GUIDE.md](app-store/SUBMISSION_GUIDE.md)** - Complete App Store submission guide
+```
+docs/
+├── PROJECT_STATUS.md          ← Start here! Current project state
+├── DEPLOYMENT_CHECKLIST.md    ← Production deployment guide
+├── TROUBLESHOOTING_AUTH.md    ← Fix authentication issues
+├── CUSTOM_EMAIL_SETUP.md      ← Set up branded emails (optional)
+├── MCP_SETUP_GUIDE.md         ← Claude/Cursor MCP configuration
+├── BACKGROUND_REFACTOR_PLAN.md← Future visual improvements
+│
+├── setup/                     ← Setup guides
+│   ├── BACKEND_SETUP.md       - Supabase backend setup
+│   ├── IOS_SETUP.md           - iOS app setup with Capacitor
+│   ├── ENVIRONMENTS.md        - Dev vs Prod environments
+│   ├── MCP_CONFIGURATION.md   - MCP detailed config
+│   └── PRODUCTION_SETUP.md    - Production environment setup
+│
+├── app-store/                 ← App Store submission
+│   └── SUBMISSION_GUIDE.md    - Complete submission guide
+│
+├── reference/                 ← Technical reference
+│   ├── DEVELOPER_ACCOUNT_INFO.md
+│   ├── SIGNING_EXPLANATION.md
+│   ├── WEB_AND_MOBILE_BACKEND.md
+│   ├── TEST_ON_PHYSICAL_DEVICE.md
+│   └── XCODE_FIRST_BUILD_CHECKLIST.md
+│
+└── archive/                   ← Historical docs (outdated)
+    └── (old status files, planning docs)
+```
 
-### `/reference` - Reference Documentation
-Technical reference and configuration details:
+---
 
-- **[DEVELOPER_ACCOUNT_INFO.md](reference/DEVELOPER_ACCOUNT_INFO.md)** - Apple Developer account details
-- **[SIGNING_EXPLANATION.md](reference/SIGNING_EXPLANATION.md)** - Code signing configuration
-- **[WEB_AND_MOBILE_BACKEND.md](reference/WEB_AND_MOBILE_BACKEND.md)** - Backend architecture explanation
-- **[TEST_ON_PHYSICAL_DEVICE.md](reference/TEST_ON_PHYSICAL_DEVICE.md)** - Testing on physical iOS devices
-- **[XCODE_FIRST_BUILD_CHECKLIST.md](reference/XCODE_FIRST_BUILD_CHECKLIST.md)** - First Xcode build checklist
+## By Task
 
-### `/archive` - Archived Documentation
-Outdated or historical documentation kept for reference:
+### Setting Up the Project
+1. [Backend Setup](setup/BACKEND_SETUP.md) - Supabase database
+2. [Environments](setup/ENVIRONMENTS.md) - Dev vs Prod
+3. [MCP Setup](MCP_SETUP_GUIDE.md) - For Claude/Cursor integration
 
-- Status updates from development phases
-- Old planning documents
-- Superseded setup guides
+### Building for iOS
+1. [iOS Setup](setup/IOS_SETUP.md) - Capacitor configuration
+2. [Test on Device](reference/TEST_ON_PHYSICAL_DEVICE.md) - Physical device testing
+3. [Xcode Checklist](reference/XCODE_FIRST_BUILD_CHECKLIST.md) - First build
 
-## 🚀 Quick Links
+### Deploying to Production
+1. [Project Status](PROJECT_STATUS.md) - Verify everything is ready
+2. [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) - Step-by-step deploy
 
-**New to the project?** Start here:
-1. [Backend Setup](setup/BACKEND_SETUP.md)
-2. [iOS Setup](setup/IOS_SETUP.md)
-3. [Developer Account Info](reference/DEVELOPER_ACCOUNT_INFO.md)
+### Submitting to App Store
+1. [Developer Account Info](reference/DEVELOPER_ACCOUNT_INFO.md) - Account details
+2. [Submission Guide](app-store/SUBMISSION_GUIDE.md) - Full submission process
 
-**Submitting to App Store?**
-1. [App Store Submission Guide](app-store/SUBMISSION_GUIDE.md)
+### Troubleshooting
+- [Authentication Issues](TROUBLESHOOTING_AUTH.md) - Fix auth problems
+- [Custom Email](CUSTOM_EMAIL_SETUP.md) - Email deliverability issues
 
-**Need technical details?**
-- Check the [Reference](reference/) directory
+---
 
-## 📝 Documentation Standards
+## Documentation Standards
 
-- All guides should be clear and beginner-friendly
-- Include troubleshooting sections where relevant
-- Keep status information current
-- Archive outdated information rather than deleting
+- Keep docs current - update after significant changes
+- Archive outdated info rather than deleting
+- Use clear headings and checklists
+- Include troubleshooting sections
