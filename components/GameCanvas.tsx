@@ -55,6 +55,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   
+  // Offscreen canvas for layer-based background rendering
+  // This allows objects to properly occlude each other before applying layer transparency
+  const bgLayerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  
   // Game State Refs
   const playerRef = useRef<Player>({
     id: 'player',
@@ -318,8 +322,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // --- Drawing Helpers ---
 
-  const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    // Sky Gradient
+  // Draw ONLY the sky gradient (terrain drawn separately for layering)
+  const drawSky = (ctx: CanvasRenderingContext2D) => {
     const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     let colors = COLORS.SKY_LEVEL_1;
     if (level === 2) colors = COLORS.SKY_LEVEL_2;
@@ -327,10 +331,28 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     if (level === 4) colors = COLORS.SKY_LEVEL_4;
     if (level === 5) colors = COLORS.SKY_LEVEL_5;
     
-    grad.addColorStop(0, colors[0]);
-    grad.addColorStop(1, colors[1]);
+    grad.addColorStop(0, colors[0]);       // zenith (top)
+    grad.addColorStop(0.45, colors[1]);    // horizon (mid)
+    grad.addColorStop(1, colors[2]);       // ground level (bottom)
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Sky clouds (far background, 0.05x parallax)
+    const cloudData = [
+      { xBase: 150, y: 50, size: 1.5, opacity: 0.15 },
+      { xBase: 420, y: 90, size: 1.8, opacity: 0.12 },
+      { xBase: 680, y: 120, size: 1.3, opacity: 0.18 },
+      { xBase: 1000, y: 70, size: 1.6, opacity: 0.14 },
+      { xBase: 1350, y: 110, size: 1.4, opacity: 0.16 },
+    ];
+    cloudData.forEach(cloud => {
+      const cloudX = cloud.xBase + (level * 180) - (cameraXRef.current * 0.05);
+      ctx.font = `${30 * cloud.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(255, 255, 255, ${cloud.opacity})`;
+      ctx.fillText('☁️', cloudX, cloud.y);
+    });
 
     // Matrix Rain Effect for Level 3
     if (level === 3) {
@@ -340,8 +362,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillText(Math.random() > 0.5 ? '1' : '0', Math.random() * CANVAS_WIDTH, Math.random() * CANVAS_HEIGHT);
       }
     }
+  };
 
-    // Static Terrain (Mountains/Cityscape)
+  // Draw terrain polygon (separate from sky for layering control)
+  const drawTerrain = (ctx: CanvasRenderingContext2D) => {
     if (levelDataRef.current?.backgroundTerrain) {
       let tColor = 'rgba(34, 139, 34, 0.6)';
       if (level === 2) tColor = 'rgba(255, 140, 0, 0.3)'; // Orange haze
@@ -352,7 +376,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillStyle = tColor;
       ctx.beginPath();
       levelDataRef.current.backgroundTerrain.forEach((pt, i) => {
-        // Simple Parallax
+        // Parallax at 0.2 speed
         const px = pt.x - (cameraXRef.current * 0.2); 
         if (i === 0) ctx.moveTo(px, pt.y);
         else ctx.lineTo(px, pt.y);
@@ -457,15 +481,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.strokeStyle = "rgba(0,0,0,0.2)";
       ctx.lineWidth = 2;
       ctx.strokeRect(entity.pos.x, entity.pos.y, entity.size.width, entity.size.height);
-    } else if (entity.type === EntityType.DECORATION) {
-      ctx.globalAlpha = entity.opacity || 1;
-      ctx.font = `${30 * (entity.scale || 1)}px serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(entity.label || '', entity.pos.x, entity.pos.y);
-      ctx.globalAlpha = 1;
     } else {
-      // Other Entities
+      // Other Entities (enemies, collectibles, goal)
       const size = entity.size.height;
       
       ctx.font = `${size}px serif`;
@@ -485,25 +502,95 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   };
 
+  // Draw decoration onto a canvas with parallax
+  const drawDecorationToCanvas = (ctx: CanvasRenderingContext2D, entity: Entity, offsetX: number) => {
+    const depth = entity.depth || 0.2; // Default to terrain parallax
+    
+    // Calculate parallax position (matches terrain at 0.2)
+    const parallaxX = entity.pos.x - (offsetX * depth);
+    
+    ctx.font = `${30 * (entity.scale || 1)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(entity.label || '', parallaxX, entity.pos.y);
+  };
+
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !levelDataRef.current) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    drawBackground(ctx);
+    // ============================================
+    // LAYER-BASED RENDERING (Revised)
+    // ============================================
+    // 1. Draw sky gradient
+    // 2. Draw terrain polygon
+    // 3. Draw decorations to OFFSCREEN canvas with FADED FILTER
+    //    - Filter: reduced saturation + increased brightness = "distant" look
+    //    - Sorted by Y position for proper occlusion
+    // 4. Composite offscreen canvas at 100% OPACITY (on top of terrain)
+    //    - Objects look faded but fully occlude terrain
+    // 5. Draw platforms, enemies, player (gameplay layer)
 
-    ctx.save();
-    ctx.translate(-cameraXRef.current, 0);
+    // Step 1: Sky
+    drawSky(ctx);
 
-    const decorations = entitiesRef.current.filter(e => e.type === EntityType.DECORATION);
+    // Step 2: Terrain
+    drawTerrain(ctx);
+
+    // Get decorations and sort by Y position (lower Y renders first, higher Y renders last/on top)
+    const decorations = entitiesRef.current
+      .filter(e => e.type === EntityType.DECORATION)
+      .sort((a, b) => a.pos.y - b.pos.y); // Lower Y first (back), higher Y last (front)
+    
     const platforms = entitiesRef.current.filter(e => e.type === EntityType.PLATFORM);
     const others = entitiesRef.current.filter(e => e.type !== EntityType.DECORATION && e.type !== EntityType.PLATFORM);
 
-    decorations.forEach(e => drawEntity(ctx, e));
+    // ---- OFFSCREEN LAYER RENDERING WITH FADED FILTER ----
+    // Create offscreen canvas if needed
+    if (!bgLayerCanvasRef.current) {
+      bgLayerCanvasRef.current = document.createElement('canvas');
+      bgLayerCanvasRef.current.width = CANVAS_WIDTH;
+      bgLayerCanvasRef.current.height = CANVAS_HEIGHT;
+    }
+    
+    const bgCtx = bgLayerCanvasRef.current.getContext('2d');
+    if (bgCtx) {
+      // Clear offscreen canvas (fully transparent)
+      bgCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // Apply FADED filter: reduced saturation + increased brightness
+      // This makes objects look "distant" without using transparency
+      bgCtx.filter = 'saturate(0.5) brightness(1.2)';
+      
+      // Draw ALL decorations to offscreen canvas
+      // Since they're sorted by Y, objects with higher Y (closer) draw on top
+      decorations.forEach(e => {
+        drawDecorationToCanvas(bgCtx, e, cameraXRef.current);
+      });
+      
+      // Reset filter
+      bgCtx.filter = 'none';
+      
+      // ---- COMPOSITE LAYER TO MAIN CANVAS ----
+      // Draw at 100% opacity - objects fully occlude terrain
+      // The faded look comes from the filter, not transparency
+      ctx.drawImage(bgLayerCanvasRef.current, 0, 0);
+    }
+
+    // ---- GAMEPLAY LAYER ----
+    // Now apply camera transform for game objects
+    ctx.save();
+    ctx.translate(-cameraXRef.current, 0);
+
+    // Draw platforms
     platforms.forEach(e => drawEntity(ctx, e));
+    
+    // Draw other entities (enemies, collectibles, goal)
     others.forEach(e => drawEntity(ctx, e));
 
+    // Draw player
     drawPlayer(ctx, playerRef.current);
 
     ctx.restore();

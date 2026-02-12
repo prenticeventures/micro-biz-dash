@@ -3,7 +3,9 @@ import GameCanvas from './components/GameCanvas';
 import GameBoyControls from './components/GameBoyControls';
 import VictoryCelebration from './components/VictoryCelebration';
 import { AuthScreen } from './src/components/AuthScreen';
+import { PaywallScreen } from './src/components/PaywallScreen';
 import { getCurrentUser, signOut } from './src/services/authService';
+import { checkPaidStatus } from './src/services/purchaseService';
 import { saveGameState, loadGameState, startNewGame, completeGameSession } from './src/services/gameStateService';
 import { updateUserStats } from './src/services/statsService';
 import { getLeaderboard, subscribeToLeaderboard } from './src/services/statsService';
@@ -29,6 +31,10 @@ const App: React.FC = () => {
   // Guest mode state - for playing level 1 without login
   const [showSignupPrompt, setShowSignupPrompt] = useState<boolean>(false);
   const [guestScore, setGuestScore] = useState<number>(0); // Store score from level 1 to save after signup
+
+  // Payment state - for paywall after level 1
+  const [hasPaid, setHasPaid] = useState<boolean>(false);
+  const [showPaywall, setShowPaywall] = useState<boolean>(false);
   
   // Backend integration state
   const [savedGame, setSavedGame] = useState<GameSession | null>(null);
@@ -50,22 +56,26 @@ const App: React.FC = () => {
     getCurrentUser().then(async (currentUser) => {
       setUser(currentUser);
       setIsCheckingAuth(false);
-      
+
       // Load saved game and leaderboard if user is authenticated
       if (currentUser) {
         const saved = await loadGameState();
         setSavedGame(saved);
         setHasCheckedSavedGame(true);
-        
+
+        // Check if user has paid
+        const paid = await checkPaidStatus(currentUser.id);
+        setHasPaid(paid);
+
         // Load leaderboard
         const leaderboardData = await getLeaderboard();
         setLeaderboard(leaderboardData);
-        
+
         // Subscribe to leaderboard updates
         const unsubscribe = subscribeToLeaderboard((entries) => {
           setLeaderboard(entries);
         });
-        
+
         return () => {
           unsubscribe();
         };
@@ -314,11 +324,18 @@ const App: React.FC = () => {
       setShowSignupPrompt(true);
       return;
     }
-    
+
+    // If logged-in user completing level 1 but hasn't paid, show paywall
+    if (user && !hasPaid && level === 1) {
+      setGuestScore(score); // Save score to display on paywall
+      setShowPaywall(true);
+      return;
+    }
+
     // Save game state before moving to next level
     if (user) {
       await saveCurrentGameState();
-      
+
       // Update stats for completing this level
       const playtimeSeconds = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
       await updateUserStats(
@@ -329,7 +346,7 @@ const App: React.FC = () => {
         false // not game completed yet
       );
     }
-    
+
     setLevel(l => l + 1);
     setHealth(3); // Reset health for new level
     setStatus(GameStatus.PLAYING);
@@ -340,7 +357,7 @@ const App: React.FC = () => {
   const handleGuestAuthenticated = async (authenticatedUser: UserProfile) => {
     setUser(authenticatedUser);
     setShowSignupPrompt(false);
-    
+
     // Save their level 1 score to the database
     try {
       await startNewGame();
@@ -355,21 +372,52 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to save guest score:', error);
     }
-    
+
     // Load leaderboard now that they're logged in
     const leaderboardData = await getLeaderboard();
     setLeaderboard(leaderboardData);
-    
+
     // Subscribe to leaderboard updates
     subscribeToLeaderboard((entries) => {
       setLeaderboard(entries);
     });
-    
-    // Continue to level 2!
+
+    // Check if user has already paid (e.g., grandfathered or restored purchase)
+    const paid = await checkPaidStatus(authenticatedUser.id);
+    setHasPaid(paid);
+
+    if (paid) {
+      // Already paid - continue to level 2!
+      setLevel(2);
+      setHealth(3);
+      setStatus(GameStatus.PLAYING);
+      gameStartTimeRef.current = Date.now();
+    } else {
+      // Not paid - show paywall
+      setShowPaywall(true);
+    }
+  };
+
+  // Handle successful purchase from paywall
+  const handlePurchaseComplete = async () => {
+    setHasPaid(true);
+    setShowPaywall(false);
+
+    // Continue to level 2
     setLevel(2);
     setHealth(3);
     setStatus(GameStatus.PLAYING);
     gameStartTimeRef.current = Date.now();
+  };
+
+  // Handle restart from paywall (replay level 1)
+  const handlePaywallRestart = () => {
+    setShowPaywall(false);
+    setLevel(1);
+    setScore(0);
+    setHealth(3);
+    setLives(3);
+    setStatus(GameStatus.MENU);
   };
 
   // Handle player death - use ref to prevent multiple calls
@@ -472,7 +520,7 @@ const App: React.FC = () => {
             <div className="text-2xl sm:text-4xl mb-1">🎉🚀🎉</div>
             <p className="text-green-400 font-bold text-sm sm:text-lg">Score: {guestScore} pts</p>
           </div>
-          
+
           {/* Sign up prompt - more compact */}
           <div className="bg-black/50 p-3 rounded-lg mb-4 border border-gray-600">
             <p className="text-white text-xs sm:text-sm mb-1">
@@ -482,13 +530,13 @@ const App: React.FC = () => {
               Create a free account to continue to Level 2 and save your progress!
             </p>
           </div>
-          
+
           {/* Auth Screen embedded */}
-          <AuthScreen 
+          <AuthScreen
             onAuthenticated={handleGuestAuthenticated}
             embedded={true}
           />
-          
+
           {/* Option to restart as guest */}
           <button
             onClick={() => {
@@ -505,6 +553,19 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+    );
+  }
+
+  // Show paywall when logged-in user completes level 1 but hasn't paid
+  if (showPaywall && user) {
+    return (
+      <PaywallScreen
+        userId={user.id}
+        userEmail={user.email || ''}
+        score={guestScore || score}
+        onPurchaseComplete={handlePurchaseComplete}
+        onRestartLevel1={handlePaywallRestart}
+      />
     );
   }
 

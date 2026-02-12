@@ -1,0 +1,45 @@
+# Micro-Biz Dash - Cursor Rules
+
+## Project Overview
+This is a retro-style platformer game built with React, TypeScript, and Capacitor.
+The user is a programming beginner - explain things simply and avoid jargon.
+
+## CRITICAL RULES - Game Development
+
+### 1. Levels Must ALWAYS Be Winnable
+**NEVER make changes that could make a level unwinnable.** This includes:
+- Gaps that are too large to jump over
+- Platforms that are unreachable
+- Enemies that are impossible to avoid
+- Goals that cannot be reached
+
+**Always test levels after any gameplay changes.**
+
+### 2. Separate Background from Gameplay
+When working on visual/background changes:
+- **Background** = decorations, parallax, sky, visual effects (safe to modify)
+- **Gameplay** = platforms, gaps, enemies, collectibles, player movement (be very careful)
+
+**DO NOT modify gameplay elements when working on background aesthetics.**
+
+### 3. Preserve RNG Sequences for Gameplay
+The level generator (`utils/levelGenerator.ts`) uses a seeded RNG. If you change how many times `rng.next()` is called before gameplay generation, you will change ALL platform placements, gaps, and enemy positions.
+
+**Solution:** Use a SEPARATE RNG for background decorations (`bgRng`) that doesn't affect gameplay RNG (`rng`).
+
+```typescript
+// CORRECT - Two separate RNGs
+const rng = new SeededRNG(levelIndex * 999);     // For gameplay - DO NOT MODIFY call pattern
+const bgRng = new SeededRNG(levelIndex * 12345); // For background only
+```
+
+## Key Files
+- `utils/levelGenerator.ts` - Level generation (BE CAREFUL)
+- `components/GameCanvas.tsx` - Rendering and game physics
+- `App.tsx` - Main game component
+- `types.ts` - TypeScript types
+- `constants.ts` - Game constants and sprites
+
+## Documentation
+- Current project status: `docs/PROJECT_STATUS.md`
+- Background refactor plan: `docs/BACKGROUND_REFACTOR_PLAN.md`

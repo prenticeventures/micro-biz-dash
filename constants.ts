@@ -8,11 +8,11 @@ export const FRICTION = 0.85;
 export const MAX_HEALTH = 3;
 
 export const COLORS = {
-  SKY_LEVEL_1: ['#87CEEB', '#E0F7FA'], // Daylight
-  SKY_LEVEL_2: ['#FFD700', '#FF8C00'], // Golden Afternoon (Distribution)
-  SKY_LEVEL_3: ['#001100', '#000000'], // Matrix Green (Tech)
-  SKY_LEVEL_4: ['#708090', '#2F4F4F'], // Cold Gray/Blue (Finance Office)
-  SKY_LEVEL_5: ['#4B0082', '#000000'], // Dark Stormy (Churn Peak)
+  SKY_LEVEL_1: ['#87CEEB', '#FFF8E1', '#E0F7FA'], // Daylight: blue → warm horizon → light blue
+  SKY_LEVEL_2: ['#FFD700', '#E65100', '#FF8C00'], // Golden Afternoon: gold → deep orange horizon → orange
+  SKY_LEVEL_3: ['#001100', '#0A2E0A', '#000000'], // Matrix: dark green → lighter green horizon → black
+  SKY_LEVEL_4: ['#708090', '#546E7A', '#2F4F4F'], // Cold Office: slate → slate horizon → dark slate
+  SKY_LEVEL_5: ['#4B0082', '#1A0033', '#000000'], // Stormy: indigo → deep purple horizon → black
   
   PLATFORM_GRASS: '#4CAF50',
   PLATFORM_DIRT: '#8B4513',

@@ -16,7 +16,10 @@ export interface UserProfile {
   email?: string;                // User's email (optional, from auth)
   created_at: string;            // When the account was created
   updated_at: string;            // Last profile update
-  last_played_at?: string;        // Last time they played
+  last_played_at?: string;       // Last time they played
+  has_paid: boolean;             // Whether user has paid for full access
+  payment_source?: string;       // 'apple', 'stripe', or 'grandfathered'
+  paid_at?: string;              // When payment was made
 }
 
 /**

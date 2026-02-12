@@ -44,7 +44,9 @@ export interface Entity {
   patrolEnd?: number;
   isDead?: boolean;
   opacity?: number; 
-  scale?: number; 
+  scale?: number;
+  // Parallax depth: 0.1 = far (moves slow), 0.3 = mid, 1.0 = foreground (moves with camera)
+  depth?: number;
 }
 
 export interface Player extends Entity {

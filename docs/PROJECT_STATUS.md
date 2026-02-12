@@ -1,6 +1,6 @@
 # Project Status
 
-**Last Updated:** February 2, 2026
+**Last Updated:** February 3, 2026
 
 ## Overview
 
@@ -15,7 +15,7 @@ Micro-Biz Dash is a retro-style platformer game where players guide an entrepren
 
 ---
 
-## Current Status: ✅ Production Ready
+## Current Status: ✅ Production Ready (Core) | 🔄 Background Refactor In Progress
 
 ### Core Features - Complete
 
@@ -31,17 +31,46 @@ Micro-Biz Dash is a retro-style platformer game where players guide an entrepren
 | Mobile support | ✅ Done | Touch controls, viewport fixes |
 | iOS app | ✅ Done | Capacitor integration |
 
-### Recent Development (January 29-30, 2026)
+### Background Refactor - In Progress
 
-**January 29:**
+**NOTE:** Session 2 (Feb 3) attempted Option A but broke gameplay. A full revert of `levelGenerator.ts` was required. The generator is back to its original state. Only the renderer changes in `GameCanvas.tsx` survived. See [BACKGROUND_REFACTOR_PLAN.md](BACKGROUND_REFACTOR_PLAN.md) for the 3-step plan for Session 3.
+
+| Goal | Status | Notes |
+|------|--------|-------|
+| Separate RNG for background | ❌ Not done | Was reverted; Step 1 of Session 3 plan |
+| Match parallax rates | ✅ Done | Renderer uses 0.2 for terrain + decorations |
+| Objects on top of terrain | ✅ Done | Offscreen canvas compositing in GameCanvas.tsx |
+| Faded "distant" look | ✅ Done | CSS filter: `saturate(0.5) brightness(1.2)` |
+| Extend terrain to full level width | ❌ Not done | Step 2 of Session 3 plan |
+| Objects anchored to surfaces | ❌ Not done | Step 3 of Session 3 plan |
+
+**Current Issue:** Generator is back to original. Background objects have random Y (float), terrain only covers 800px, and background + gameplay share one RNG. Three problems, clear 3-step fix plan ready to execute.
+
+### Recent Development
+
+**January 29-30, 2026:**
 - Fixed authentication flow and improved UI/UX
 - Fixed audio double-play issue in React Strict Mode
-
-**January 30:**
 - Added guest mode (play Level 1 before signup)
 - Updated Vite to fix esbuild security vulnerability
 - Fixed mobile bugs: keyboard overlap, controls, viewport
-- Fixed movement/control issues (stuck keys, mobile detection)
+
+**February 2, 2026:**
+- Created `feature/background-refactor` branch
+- Implemented layer-based rendering (offscreen canvas)
+- Fixed parallax mismatch (all objects now use 0.2)
+- Added CSS filter for faded "distant" look
+- Objects render on top of terrain (no transparency bleed)
+- **Blocking issue identified:** Object Y positions don't track terrain shape
+
+**February 3, 2026:**
+- Attempted Option A (extend terrain + X→Y lookup) — broke gameplay (level 2 unwinnable)
+- Root cause: changes to the generator shifted the shared RNG sequence, moving platforms and creating impassable gaps
+- **Process fix:** Created `tests/gameplay-baseline.json` — a ground-truth snapshot of all gameplay entities across all 5 levels
+- **Process fix:** Added Rule 4 to `.claude/CLAUDE.md` — mandatory baseline verification after any `levelGenerator.ts` change (runnable JS snippet included)
+- Fully reverted `levelGenerator.ts` to git HEAD; verified ALL 5 LEVELS PASS against baseline
+- Re-assessed current state; identified 3 problems and a safe 3-step fix plan (see BACKGROUND_REFACTOR_PLAN.md)
+- **GameCanvas.tsx renderer changes were NOT reverted** — offscreen canvas, sky, terrain drawing, CSS filter all still in place
 
 ---
 
@@ -112,6 +141,7 @@ npm run build
 | `src/lib/supabase.ts` | Supabase client |
 | `database/schema.sql` | Full database schema |
 | `.env.local` | Environment configuration |
+| `tests/gameplay-baseline.json` | Ground-truth gameplay entity snapshot (all 5 levels). Used by Rule 4 verification. |
 
 ---
 
