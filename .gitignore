@@ -42,3 +42,7 @@ ios/App/*.xcodeproj/xcuserdata/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Local/dev-only files
+sh-thd-*
+.claude/settings.json
