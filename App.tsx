@@ -151,6 +151,14 @@ const App: React.FC = () => {
     audioRef.current?.toggleMute(isMuted);
   }, [isMuted]);
 
+  useEffect(() => {
+    if (status !== GameStatus.PLAYING) {
+      setTouchLeftPressed(false);
+      setTouchRightPressed(false);
+      setTouchJumpPressed(false);
+    }
+  }, [status]);
+
 
   useEffect(() => {
     // Determine next level description for the completion screen

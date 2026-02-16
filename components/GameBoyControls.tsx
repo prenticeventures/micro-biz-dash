@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface GameBoyControlsProps {
   onLeftPress: () => void;
@@ -10,6 +10,8 @@ interface GameBoyControlsProps {
   onMuteToggle?: () => void;
   isMuted?: boolean;
 }
+
+type ButtonType = 'left' | 'right' | 'a';
 
 const GameBoyControls: React.FC<GameBoyControlsProps> = ({
   onLeftPress,
@@ -24,69 +26,120 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
   const [leftPressed, setLeftPressed] = useState(false);
   const [rightPressed, setRightPressed] = useState(false);
   const [aPressed, setAPressed] = useState(false);
-  
-  // Track which button is currently being touched
-  const activeTouchRef = useRef<'left' | 'right' | 'a' | null>(null);
+  const callbacksRef = useRef({
+    onLeftPress,
+    onLeftRelease,
+    onRightPress,
+    onRightRelease,
+    onAPress,
+    onARelease
+  });
+  const activePointersRef = useRef<Map<number, ButtonType>>(new Map());
+  const pressedStateRef = useRef<Record<ButtonType, boolean>>({
+    left: false,
+    right: false,
+    a: false
+  });
 
-  // Global touch end handler to catch touches that end outside the button
   useEffect(() => {
-    const handleGlobalTouchEnd = (e: TouchEvent) => {
-      // If a button was pressed but touch ended anywhere, release it
-      if (activeTouchRef.current === 'left' && leftPressed) {
-        setLeftPressed(false);
-        onLeftRelease();
-        activeTouchRef.current = null;
-      } else if (activeTouchRef.current === 'right' && rightPressed) {
-        setRightPressed(false);
-        onRightRelease();
-        activeTouchRef.current = null;
-      } else if (activeTouchRef.current === 'a' && aPressed) {
-        setAPressed(false);
-        onARelease();
-        activeTouchRef.current = null;
+    callbacksRef.current = {
+      onLeftPress,
+      onLeftRelease,
+      onRightPress,
+      onRightRelease,
+      onAPress,
+      onARelease
+    };
+  }, [onLeftPress, onLeftRelease, onRightPress, onRightRelease, onAPress, onARelease]);
+
+  const pressButton = useCallback((buttonType: ButtonType) => {
+    if (pressedStateRef.current[buttonType]) return;
+    pressedStateRef.current[buttonType] = true;
+
+    if (buttonType === 'left') {
+      setLeftPressed(true);
+      callbacksRef.current.onLeftPress();
+    } else if (buttonType === 'right') {
+      setRightPressed(true);
+      callbacksRef.current.onRightPress();
+    } else {
+      setAPressed(true);
+      callbacksRef.current.onAPress();
+    }
+  }, []);
+
+  const releaseButton = useCallback((buttonType: ButtonType) => {
+    if (!pressedStateRef.current[buttonType]) return;
+    pressedStateRef.current[buttonType] = false;
+
+    if (buttonType === 'left') {
+      setLeftPressed(false);
+      callbacksRef.current.onLeftRelease();
+    } else if (buttonType === 'right') {
+      setRightPressed(false);
+      callbacksRef.current.onRightRelease();
+    } else {
+      setAPressed(false);
+      callbacksRef.current.onARelease();
+    }
+  }, []);
+
+  const releaseAllButtons = useCallback(() => {
+    releaseButton('left');
+    releaseButton('right');
+    releaseButton('a');
+    activePointersRef.current.clear();
+  }, [releaseButton]);
+
+  useEffect(() => {
+    const handleGlobalPointerEnd = (e: PointerEvent) => {
+      const activeButton = activePointersRef.current.get(e.pointerId);
+      if (!activeButton) return;
+      activePointersRef.current.delete(e.pointerId);
+      releaseButton(activeButton);
+    };
+
+    const handleWindowBlur = () => {
+      releaseAllButtons();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        releaseAllButtons();
       }
     };
 
-    const handleGlobalTouchCancel = (e: TouchEvent) => {
-      // Same as touch end - release any active button
-      handleGlobalTouchEnd(e);
-    };
-
-    document.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
-    document.addEventListener('touchcancel', handleGlobalTouchCancel, { passive: true });
+    window.addEventListener('pointerup', handleGlobalPointerEnd);
+    window.addEventListener('pointercancel', handleGlobalPointerEnd);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      document.removeEventListener('touchend', handleGlobalTouchEnd);
-      document.removeEventListener('touchcancel', handleGlobalTouchCancel);
+      window.removeEventListener('pointerup', handleGlobalPointerEnd);
+      window.removeEventListener('pointercancel', handleGlobalPointerEnd);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseAllButtons();
     };
-  }, [leftPressed, rightPressed, aPressed, onLeftRelease, onRightRelease, onARelease]);
+  }, [releaseButton, releaseAllButtons]);
 
-  // Handle touch events to prevent default scrolling and handle press/release
-  const handleTouchStart = (e: React.TouchEvent, buttonType: 'left' | 'right' | 'a', callback: () => void, setPressed: (val: boolean) => void) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>, buttonType: ButtonType) => {
     e.preventDefault();
     e.stopPropagation();
-    activeTouchRef.current = buttonType;
-    setPressed(true);
-    callback();
+    activePointersRef.current.set(e.pointerId, buttonType);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    pressButton(buttonType);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent, buttonType: 'left' | 'right' | 'a', callback: () => void, setPressed: (val: boolean) => void) => {
+  const handlePointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (activeTouchRef.current === buttonType) {
-      setPressed(false);
-      callback();
-      activeTouchRef.current = null;
-    }
-  };
-
-  const handleTouchCancel = (e: React.TouchEvent, buttonType: 'left' | 'right' | 'a', callback: () => void, setPressed: (val: boolean) => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (activeTouchRef.current === buttonType) {
-      setPressed(false);
-      callback();
-      activeTouchRef.current = null;
+    const activeButton = activePointersRef.current.get(e.pointerId);
+    if (!activeButton) return;
+    activePointersRef.current.delete(e.pointerId);
+    releaseButton(activeButton);
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
     }
   };
 
@@ -106,15 +159,12 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
         
         {/* Left Arrow Button - Larger for easier tapping */}
         <button
-          onTouchStart={(e) => handleTouchStart(e, 'left', onLeftPress, setLeftPressed)}
-          onTouchEnd={(e) => handleTouchEnd(e, 'left', onLeftRelease, setLeftPressed)}
-          onTouchCancel={(e) => handleTouchCancel(e, 'left', onLeftRelease, setLeftPressed)}
-          onMouseDown={() => { setLeftPressed(true); onLeftPress(); }}
-          onMouseUp={() => { setLeftPressed(false); onLeftRelease(); }}
-          onMouseLeave={() => { setLeftPressed(false); onLeftRelease(); }}
-          className={`absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 sm:w-14 sm:h-14 bg-gray-700 rounded-l flex items-center justify-center transition-all touch-manipulation ${
+          onPointerDown={(e) => handlePointerDown(e, 'left')}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 sm:w-14 sm:h-14 bg-gray-700 rounded-l flex items-center justify-center transition-all touch-none ${
             leftPressed 
-              ? 'shadow-[inset_0_-2px_0_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.1)] translate-y-0.5' 
+              ? 'shadow-[inset_0_-2px_0_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.1)] scale-95' 
               : 'shadow-[inset_0_-4px_0_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.2)]'
           }`}
           aria-label="Move Left"
@@ -124,15 +174,12 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
 
         {/* Right Arrow Button - Larger for easier tapping */}
         <button
-          onTouchStart={(e) => handleTouchStart(e, 'right', onRightPress, setRightPressed)}
-          onTouchEnd={(e) => handleTouchEnd(e, 'right', onRightRelease, setRightPressed)}
-          onTouchCancel={(e) => handleTouchCancel(e, 'right', onRightRelease, setRightPressed)}
-          onMouseDown={() => { setRightPressed(true); onRightPress(); }}
-          onMouseUp={() => { setRightPressed(false); onRightRelease(); }}
-          onMouseLeave={() => { setRightPressed(false); onRightRelease(); }}
-          className={`absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 sm:w-14 sm:h-14 bg-gray-700 rounded-r flex items-center justify-center transition-all touch-manipulation ${
+          onPointerDown={(e) => handlePointerDown(e, 'right')}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          className={`absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 sm:w-14 sm:h-14 bg-gray-700 rounded-r flex items-center justify-center transition-all touch-none ${
             rightPressed 
-              ? 'shadow-[inset_0_-2px_0_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.1)] translate-y-0.5' 
+              ? 'shadow-[inset_0_-2px_0_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.1)] scale-95' 
               : 'shadow-[inset_0_-4px_0_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.2)]'
           }`}
           aria-label="Move Right"
@@ -144,13 +191,10 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
       {/* A Button (Red, positioned on the right) with Mute button underneath */}
       <div className="relative flex-shrink-0 flex flex-col items-center">
         <button
-          onTouchStart={(e) => handleTouchStart(e, 'a', onAPress, setAPressed)}
-          onTouchEnd={(e) => handleTouchEnd(e, 'a', onARelease, setAPressed)}
-          onTouchCancel={(e) => handleTouchCancel(e, 'a', onARelease, setAPressed)}
-          onMouseDown={() => { setAPressed(true); onAPress(); }}
-          onMouseUp={() => { setAPressed(false); onARelease(); }}
-          onMouseLeave={() => { setAPressed(false); onARelease(); }}
-          className={`relative w-20 h-20 sm:w-24 sm:h-24 bg-red-600 rounded-full shadow-[inset_0_-6px_0_rgba(0,0,0,0.5),inset_0_3px_0_rgba(255,255,255,0.3),0_0_20px_rgba(220,38,38,0.4)] transition-all touch-manipulation ${
+          onPointerDown={(e) => handlePointerDown(e, 'a')}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          className={`relative w-20 h-20 sm:w-24 sm:h-24 bg-red-600 rounded-full shadow-[inset_0_-6px_0_rgba(0,0,0,0.5),inset_0_3px_0_rgba(255,255,255,0.3),0_0_20px_rgba(220,38,38,0.4)] transition-all touch-none ${
             aPressed 
               ? 'shadow-[inset_0_-3px_0_rgba(0,0,0,0.5),inset_0_3px_0_rgba(255,255,255,0.2)] translate-y-1' 
               : ''
@@ -168,7 +212,7 @@ const GameBoyControls: React.FC<GameBoyControlsProps> = ({
             <button
               onClick={onMuteToggle}
               onTouchStart={(e) => e.preventDefault()}
-              className="w-12 h-3 sm:w-14 sm:h-4 bg-black rounded shadow-[inset_0_-2px_0_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] active:shadow-[inset_0_-1px_0_rgba(0,0,0,0.8)] active:translate-y-0.5 transition-all touch-manipulation"
+              className="w-12 h-3 sm:w-14 sm:h-4 bg-black rounded shadow-[inset_0_-2px_0_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] active:shadow-[inset_0_-1px_0_rgba(0,0,0,0.8)] active:translate-y-0.5 transition-all touch-none"
               title={isMuted ? "Unmute" : "Mute"}
               aria-label={isMuted ? "Unmute" : "Mute"}
             >
