@@ -15,13 +15,15 @@ import type { UserStats, LeaderboardEntry } from '../types/database';
  * @param playtimeSeconds - How long they played (in seconds)
  * @param coinsCollected - Coins collected in this session
  * @param gameCompleted - Did they finish all levels?
+ * @param incrementSession - Should total_sessions increment for this update?
  */
 export async function updateUserStats(
   score: number,
   level: number,
   playtimeSeconds: number,
   coinsCollected: number,
-  gameCompleted: boolean = false
+  gameCompleted: boolean = false,
+  incrementSession: boolean = false
 ) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -42,7 +44,7 @@ export async function updateUserStats(
     const newBestScore = Math.max(currentStats.best_score, score);
     const newHighestLevel = Math.max(currentStats.highest_level, level);
     const newTotalPlaytime = currentStats.total_playtime_seconds + playtimeSeconds;
-    const newTotalSessions = currentStats.total_sessions + 1;
+    const newTotalSessions = currentStats.total_sessions + (incrementSession ? 1 : 0);
     const newTotalCoins = currentStats.total_coins_collected + coinsCollected;
     const newGamesCompleted = gameCompleted
       ? currentStats.games_completed + 1

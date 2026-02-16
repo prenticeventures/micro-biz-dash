@@ -36,6 +36,7 @@ const App: React.FC = () => {
   const [hasCheckedSavedGame, setHasCheckedSavedGame] = useState(false);
   const gameStartTimeRef = useRef<number>(0);
   const lastSaveTimeRef = useRef<number>(0);
+  const leaderboardUnsubscribeRef = useRef<(() => void) | null>(null);
   
   // Touch control state
   const [touchLeftPressed, setTouchLeftPressed] = useState<boolean>(false);
@@ -45,36 +46,49 @@ const App: React.FC = () => {
   // Audio Manager Ref
   const audioRef = useRef<RetroAudio | null>(null);
 
-  // Check authentication silently on mount (don't block the app)
-  useEffect(() => {
-    getCurrentUser().then(async (currentUser) => {
-      setUser(currentUser);
-      setIsCheckingAuth(false);
-      
-      // Load saved game and leaderboard if user is authenticated
-      if (currentUser) {
-        const saved = await loadGameState();
-        setSavedGame(saved);
-        setHasCheckedSavedGame(true);
-        
-        // Load leaderboard
-        const leaderboardData = await getLeaderboard();
-        setLeaderboard(leaderboardData);
-        
-        // Subscribe to leaderboard updates
-        const unsubscribe = subscribeToLeaderboard((entries) => {
-          setLeaderboard(entries);
-        });
-        
-        return () => {
-          unsubscribe();
-        };
-      } else {
-        // Guest user - mark as checked so menu shows correctly
-        setHasCheckedSavedGame(true);
-      }
+  const resubscribeLeaderboard = useCallback(() => {
+    leaderboardUnsubscribeRef.current?.();
+    leaderboardUnsubscribeRef.current = subscribeToLeaderboard((entries) => {
+      setLeaderboard(entries);
     });
   }, []);
+
+  // Check authentication silently on mount (don't block the app)
+  useEffect(() => {
+    let isMounted = true;
+
+    const initApp = async () => {
+      const currentUser = await getCurrentUser();
+      if (!isMounted) return;
+
+      setUser(currentUser);
+      setIsCheckingAuth(false);
+
+      if (currentUser) {
+        const saved = await loadGameState();
+        if (!isMounted) return;
+
+        setSavedGame(saved);
+        setHasCheckedSavedGame(true);
+
+        const leaderboardData = await getLeaderboard();
+        if (!isMounted) return;
+
+        setLeaderboard(leaderboardData);
+        resubscribeLeaderboard();
+      } else {
+        setHasCheckedSavedGame(true);
+      }
+    };
+
+    initApp();
+
+    return () => {
+      isMounted = false;
+      leaderboardUnsubscribeRef.current?.();
+      leaderboardUnsubscribeRef.current = null;
+    };
+  }, [resubscribeLeaderboard]);
 
   useEffect(() => {
     // Initialize Audio Manager once - guard against React Strict Mode double-initialization
@@ -209,7 +223,8 @@ const App: React.FC = () => {
           level,
           playtimeSeconds,
           score,
-          true // game completed!
+          true, // game completed!
+          true // end of session
         );
         
         // Refresh leaderboard
@@ -369,9 +384,7 @@ const App: React.FC = () => {
     setLeaderboard(leaderboardData);
     
     // Subscribe to leaderboard updates
-    subscribeToLeaderboard((entries) => {
-      setLeaderboard(entries);
-    });
+    resubscribeLeaderboard();
     
     // Continue to level 2!
     setLevel(2);
@@ -427,7 +440,8 @@ const App: React.FC = () => {
         level,
         playtimeSeconds,
         score,
-        false
+        false,
+        true // end of session
       );
     }
     
