@@ -55,11 +55,18 @@ cat > "$ENV_FILE" << EOF
 # - $(if [ "$TARGET" == "production" ]; then echo "Production data"; else echo "Higher rate limits for testing"; fi)
 VITE_SUPABASE_URL=${URL}
 VITE_SUPABASE_ANON_KEY=${KEY}
-
-# Supabase Personal Access Token (for MCP/automation - NOT for app code)
-# This is only used by development tools, never exposed to users
-SUPABASE_ACCESS_TOKEN=sbp_3dcfc5848b04d7535340aa8763731e1f639ba52d
 EOF
+
+# Optional local tooling token (never required for app runtime).
+# Provide it via your shell env when running this script:
+#   SUPABASE_ACCESS_TOKEN=sbp_xxx ./scripts/switch-env.sh dev
+if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+    {
+        echo ""
+        echo "# Optional local tooling token (not used by the app itself)"
+        echo "SUPABASE_ACCESS_TOKEN=${SUPABASE_ACCESS_TOKEN}"
+    } >> "$ENV_FILE"
+fi
 
 echo -e "${GREEN}✓ Switched to ${TARGET^} environment${NC}"
 echo ""

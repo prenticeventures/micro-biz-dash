@@ -14,7 +14,7 @@ Cursor may use a **different** Supabase MCP (e.g. built-in) that doesn't read `.
 2. **Check the MCP list** for any **Supabase**-related server.
 3. **If you see one:** 
    - Click it and look for **"Access token"**, **"SUPABASE_ACCESS_TOKEN"**, or **"Environment variables"**.
-   - Add your token: `sbp_3dcfc5848b04d7535340aa8763731e1f639ba52d`
+   - Add your token: `<your-supabase-personal-access-token>`
 4. **If you can "Add Custom MCP":**  
    Use that and point it at the config in this project; ensure the Supabase server you add uses the token.
 

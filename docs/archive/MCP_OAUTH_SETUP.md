@@ -44,7 +44,7 @@ We successfully configured Supabase MCP connection. Here's what was done:
     "-y",
     "@supabase/mcp-server-supabase@latest",
     "--access-token",
-    "sbp_3dcfc5848b04d7535340aa8763731e1f639ba52d"
+    "<your-supabase-personal-access-token>"
   ]
 }
 ```

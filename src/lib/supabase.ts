@@ -8,18 +8,23 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Get Supabase credentials from environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env.local file.\n' +
-    'You need:\n' +
-    '- VITE_SUPABASE_URL\n' +
-    '- VITE_SUPABASE_ANON_KEY\n\n' +
-    'Get these from: https://app.supabase.com/project/YOUR_PROJECT/settings/api'
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const supabaseConfigError = isSupabaseConfigured
+  ? null
+  : 'Missing Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). Running in guest-only mode.';
+
+if (!isSupabaseConfigured) {
+  console.error(
+    'Missing Supabase environment variables. Running in guest-only mode.'
   );
 }
+
+// Fallback values prevent a hard crash before React can render an error state.
+const clientUrl = supabaseUrl || 'https://invalid.local';
+const clientAnonKey = supabaseAnonKey || 'missing-anon-key';
 
 /**
  * Supabase client instance
@@ -29,7 +34,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * - Database queries (users, game sessions, stats)
  * - Real-time subscriptions (leaderboard updates)
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(clientUrl, clientAnonKey, {
   auth: {
     // Store auth tokens in localStorage for persistence
     storage: window.localStorage,

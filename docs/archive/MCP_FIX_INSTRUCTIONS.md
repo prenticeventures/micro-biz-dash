@@ -26,7 +26,7 @@ The MCP config file exists, but Cursor needs to recognize it. Here's how to fix 
 5. **If you see Supabase but it needs the token:**
    - Click on the "supabase" entry
    - Look for **"Access Token"**, **"Environment Variables"**, or **"Config"**
-   - Add: `sbp_3dcfc5848b04d7535340aa8763731e1f639ba52d`
+   - Add: `<your-supabase-personal-access-token>`
    - Save
 
 6. **Restart Cursor** after making changes

@@ -17,7 +17,7 @@ To let me do everything automatically, configure the Supabase MCP server in Curs
 3. **Add the Access Token:**
    - Set the `SUPABASE_ACCESS_TOKEN` environment variable to:
      ```
-     sbp_3dcfc5848b04d7535340aa8763731e1f639ba52d
+     <your-supabase-personal-access-token>
      ```
    - Or use the `--access-token` flag with that value
 

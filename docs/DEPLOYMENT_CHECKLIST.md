@@ -53,6 +53,8 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
 - Variables MUST be prefixed with `VITE_` for Vite to include them
 - Set these BEFORE building/deploying
 - Restart deployment after setting variables
+- `VITE_` variables are client-visible by design (web + iOS bundle). Do not put privileged secrets there.
+- Keep privileged credentials (for example Supabase service role keys) only in server-side env vars without `VITE_`.
 
 ### Step 3: Deploy
 

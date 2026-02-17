@@ -116,6 +116,7 @@ micro-biz-dash_-2026-edition/
 # Development
 npm run dev              # Start dev server
 npm run build            # Build for production
+npm run validate:env     # Check required Supabase vars
 
 # iOS
 npm run ios:sync         # Build and sync to iOS
@@ -126,12 +127,20 @@ npm run ios:pods         # Reinstall CocoaPods
 
 ## 🔐 Environment Variables
 
-Create a `.env.local` file with:
+Copy `.env.example` to `.env.local` and fill in values:
+
+```bash
+cp .env.example .env.local
+```
+
+Required values:
 
 ```env
 VITE_SUPABASE_URL=https://[your-project-id].supabase.co
 VITE_SUPABASE_ANON_KEY=[your-publishable-key]
 ```
+
+`npm run build` now fails fast if either value is missing.
 
 See [Backend Setup](docs/setup/BACKEND_SETUP.md) for detailed instructions.
 

@@ -122,6 +122,7 @@ npm run ios:pods
 
 ### "Build failed"
 - Make sure you ran `npm run build` first
+- Run `npm run validate:env` to confirm required Supabase vars exist
 - Check that `dist/` folder exists
 - Try: `npm run ios:sync` to rebuild and sync
 

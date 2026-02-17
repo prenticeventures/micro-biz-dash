@@ -47,14 +47,25 @@ See `docs/reference/SIGNING_EXPLANATION.md` for why manual signing is used for R
 
 ## Building and Uploading
 
-### Step 1: Build and Archive
+### Step 1: Preflight (Required)
+
+1. Ensure `.env.local` exists with:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+2. Run:
+   ```bash
+   npm run ios:sync
+   ```
+   This now validates env vars and re-syncs the latest web bundle into iOS before archiving.
+
+### Step 2: Build and Archive
 
 1. Open Xcode: `ios/App/App.xcworkspace`
 2. Select "Any iOS Device" (not simulator)
 3. Product → Archive
 4. Wait for archive to complete (2-5 minutes)
 
-### Step 2: Upload to App Store Connect
+### Step 3: Upload to App Store Connect
 
 1. In Organizer, select your archive
 2. Click "Distribute App"
@@ -65,14 +76,14 @@ See `docs/reference/SIGNING_EXPLANATION.md` for why manual signing is used for R
    - Click "Upload"
 5. Wait 5-10 minutes for upload
 
-### Step 3: Select Build in App Store Connect
+### Step 4: Select Build in App Store Connect
 
 1. Go to App Store Connect → Your App → Version → Build section
 2. Click "+" or "Select a build"
 3. Choose the build you just uploaded
 4. Wait for processing to complete
 
-### Step 4: Submit for Review
+### Step 5: Submit for Review
 
 1. Review all sections are complete:
    - ✅ Screenshots uploaded

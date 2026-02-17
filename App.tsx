@@ -12,6 +12,7 @@ import type { GameSession, LeaderboardEntry } from './src/types/database';
 import { GameStatus } from './types';
 import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
+import { isSupabaseConfigured } from './src/lib/supabase';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -58,6 +59,12 @@ const App: React.FC = () => {
     let isMounted = true;
 
     const initApp = async () => {
+      if (!isSupabaseConfigured) {
+        setIsCheckingAuth(false);
+        setHasCheckedSavedGame(true);
+        return;
+      }
+
       const currentUser = await getCurrentUser();
       if (!isMounted) return;
 
@@ -333,6 +340,15 @@ const App: React.FC = () => {
   const handleNextLevel = async () => {
     // If guest user completing level 1, show signup prompt instead
     if (!user && level === 1) {
+      if (!isSupabaseConfigured) {
+        setLevel((l) => l + 1);
+        setHealth(3);
+        setStatus(GameStatus.PLAYING);
+        setMessage('Offline mode: continuing without account');
+        gameStartTimeRef.current = Date.now();
+        return;
+      }
+
       setGuestScore(score); // Save their score to restore after signup
       setShowSignupPrompt(true);
       return;
@@ -482,7 +498,7 @@ const App: React.FC = () => {
   }
 
   // Show signup prompt when guest completes level 1
-  if (showSignupPrompt) {
+  if (showSignupPrompt && isSupabaseConfigured) {
     return (
       <div className="min-h-[100dvh] w-screen bg-black overflow-y-auto py-4 px-4">
         <div className="bg-gray-800 border-4 border-yellow-400 rounded-lg p-4 sm:p-6 max-w-lg w-full mx-auto text-center">
@@ -532,6 +548,11 @@ const App: React.FC = () => {
 
   return (
     <div className={`${isMobile ? 'h-[100dvh]' : 'h-screen'} w-screen bg-black ${isMobile ? 'flex flex-col' : 'flex items-center justify-center'} ${isMobile ? '' : 'p-2 sm:p-4'} overflow-hidden font-sans select-none touch-none`}>
+      {!isSupabaseConfigured && (
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[120] bg-red-900/90 border border-red-500 text-red-100 px-3 py-1 rounded text-[0.55rem] sm:text-xs font-mono">
+          Online services unavailable. Running in guest-only mode.
+        </div>
+      )}
       
       {/* Retro TV/GameBoy Container */}
       <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'flex-1 flex flex-col min-h-0' : 'max-w-[min(900px,110vh)] flex flex-col shrink-0'}`}>
@@ -615,7 +636,9 @@ const App: React.FC = () => {
                     {/* Guest mode notice */}
                     {!user && (
                       <div className="mt-3 sm:mt-4 text-[0.55rem] sm:text-xs text-gray-400 font-mono">
-                        Sign up after Level 1 to save progress & compete!
+                        {isSupabaseConfigured
+                          ? 'Sign up after Level 1 to save progress & compete!'
+                          : 'Offline mode: account sync and leaderboard unavailable.'}
                       </div>
                     )}
                     {/* Leaderboard only for logged-in users */}

@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "validate:env": "node scripts/validate-env.mjs",
+    "build": "npm run validate:env && vite build",
     "preview": "vite preview",
     "ios:sync": "npm run build && npx cap sync ios",
     "ios:open": "npx cap open ios",
-    "ios:run": "npm run ios:sync && npm run ios:open"
+    "ios:run": "npm run ios:sync && npm run ios:open",
+    "ios:pods": "./scripts/install-pods.sh"
   },
   "dependencies": {
     "@capacitor/cli": "^7.4.5",
