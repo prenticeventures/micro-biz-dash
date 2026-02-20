@@ -59,6 +59,7 @@ Micro-Biz Dash is a retro platformer game featuring:
 ### App Store
 
 - **[Submission Guide](docs/app-store/SUBMISSION_GUIDE.md)** - Complete guide for App Store submission
+- **[QA Automation](docs/QA_AUTOMATION.md)** - Automated test and release gate system
 
 ### Reference
 
@@ -117,6 +118,10 @@ micro-biz-dash_-2026-edition/
 npm run dev              # Start dev server
 npm run build            # Build for production
 npm run validate:env     # Check required Supabase vars
+npm run typecheck        # TypeScript checks
+npm run test:ci          # Run automated tests once
+npm run qa:web           # Full automated web quality gate
+npm run qa:ios           # Full automated iOS quality gate
 
 # iOS
 npm run ios:sync         # Build and sync to iOS

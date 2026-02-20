@@ -2,6 +2,51 @@
 
 ## Common Authentication Issues and Solutions
 
+### Issue 0: "Load failed" on Login/Signup (especially iOS)
+
+**Symptoms:**
+- Login and signup both fail immediately
+- Error message shown to player: `Load failed`
+- Happens in production app even when credentials are correct
+
+**Confirmed Root Cause (February 19, 2026):**
+The iOS bundle was built with the development Supabase host (`vgkpbslbfvcwvlmwkowj`) instead of production (`zbtbtmybzuutxfntdyvp`).
+
+At the time of incident:
+- `vgkpbslbfvcwvlmwkowj.supabase.co` returned DNS `NXDOMAIN`
+- `zbtbtmybzuutxfntdyvp.supabase.co` resolved normally
+
+So auth requests never reached Supabase and surfaced as a generic network error (`Load failed`).
+
+**How to Verify Quickly:**
+1. Check which project ref was baked into the mobile bundle:
+   ```bash
+   rg -o "vgkpbslbfvcwvlmwkowj|zbtbtmybzuutxfntdyvp" ios/App/App/public/assets/index-*.js | sort -u
+   ```
+2. Confirm DNS for both hosts:
+   ```bash
+   nslookup vgkpbslbfvcwvlmwkowj.supabase.co
+   nslookup zbtbtmybzuutxfntdyvp.supabase.co
+   ```
+
+**Fix:**
+1. Switch local env to production:
+   ```bash
+   ./scripts/switch-env.sh prod
+   ```
+2. Re-sync web bundle into iOS:
+   ```bash
+   npm run ios:sync
+   ```
+3. Re-archive and export a new IPA from Xcode
+4. Upload new IPA
+
+**Prevention:**
+- `scripts/upload-to-app-store.sh` now validates the IPA contains the expected production Supabase project ref before upload.
+- Always run `./scripts/switch-env.sh prod` before `npm run ios:sync` for release builds.
+
+---
+
 ### Issue 1: "User profile was not created by trigger" Error
 
 **Symptoms:**
@@ -97,9 +142,13 @@ For dev environment, consider disabling email confirmation:
 Check that you're using the correct Supabase project:
 
 ```env
-# In .env.local - make sure correct project is uncommented
-VITE_SUPABASE_URL=https://vgkpbslbfvcwvlmwkowj.supabase.co  # Dev
-# VITE_SUPABASE_URL=https://zbtbtmybzuutxfntdyvp.supabase.co  # Prod
+# For release builds, this must point to production:
+VITE_SUPABASE_URL=https://zbtbtmybzuutxfntdyvp.supabase.co
+```
+
+Recommended switch command:
+```bash
+./scripts/switch-env.sh prod
 ```
 
 ---

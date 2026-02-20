@@ -1,0 +1,54 @@
+name: iOS Smoke Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'App.tsx'
+      - 'components/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ios/**'
+      - 'vite.config.ts'
+
+jobs:
+  qa-ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      VITE_SUPABASE_URL: https://zbtbtmybzuutxfntdyvp.supabase.co
+      VITE_SUPABASE_ANON_KEY: sb_publishable_ci_dummy_key_1234567890
+      EXPECTED_SUPABASE_PROJECT_REF: zbtbtmybzuutxfntdyvp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run iOS quality gates
+        run: npm run qa:ios
+
+      - name: Build iOS app for simulator smoke validation
+        working-directory: ios/App
+        run: |
+          SIMULATOR_ID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed 's/.*(\(.*\))/\1/' | tr -d ' ')
+          if [ -z "$SIMULATOR_ID" ]; then
+            echo "No available iPhone simulator found on runner."
+            exit 1
+          fi
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath ./build \
+            build

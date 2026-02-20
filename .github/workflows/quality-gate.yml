@@ -1,0 +1,31 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  qa-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: https://zbtbtmybzuutxfntdyvp.supabase.co
+      VITE_SUPABASE_ANON_KEY: sb_publishable_ci_dummy_key_1234567890
+      EXPECTED_SUPABASE_PROJECT_REF: zbtbtmybzuutxfntdyvp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run automated web quality gates
+        run: npm run qa:web

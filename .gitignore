@@ -10,12 +10,15 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+coverage
+test-results
 *.local
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+.env*.backup
 
 # Supabase access token (never commit this!)
 .supabase-token

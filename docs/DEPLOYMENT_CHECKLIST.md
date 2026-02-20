@@ -29,7 +29,8 @@ Use this checklist when deploying to production.
 ### Step 1: Build Production Bundle
 
 ```bash
-npm run build
+./scripts/switch-env.sh prod
+npm run qa:web
 ```
 
 This creates optimized production files in `dist/` folder.

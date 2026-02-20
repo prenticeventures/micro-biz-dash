@@ -8,6 +8,28 @@
 import { supabase, TABLES } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 
+const NETWORK_ERROR_PATTERN = /load failed|failed to fetch|network request failed|networkerror/i;
+
+function normalizeAuthError(error: unknown, fallback: string): string {
+  const message =
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+      ? (error as { message: string }).message
+      : fallback;
+
+  if (NETWORK_ERROR_PATTERN.test(message)) {
+    return 'Network error contacting the sign-in service. Please check your connection and try again.';
+  }
+
+  if (message.toLowerCase().includes('invalid login credentials')) {
+    return 'Invalid email or password. Please try again.';
+  }
+
+  return message;
+}
+
 /**
  * Sign up a new user
  * 
@@ -115,7 +137,7 @@ export async function signUp(email: string, password: string, gameName: string) 
     return {
       user: null,
       session: null,
-      error: error.message || 'Failed to sign up',
+      error: normalizeAuthError(error, 'Failed to sign up'),
     };
   }
 }
@@ -155,7 +177,31 @@ export async function signIn(email: string, password: string) {
     return {
       user: null,
       session: null,
-      error: error.message || 'Failed to sign in',
+      error: normalizeAuthError(error, 'Failed to sign in'),
+    };
+  }
+}
+
+/**
+ * Send password reset email
+ *
+ * @param email - User's email
+ * @returns Error state (null on success)
+ */
+export async function requestPasswordReset(email: string) {
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail) {
+    return { error: 'Please enter your email first.' };
+  }
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail);
+    if (error) throw error;
+
+    return { error: null };
+  } catch (error: any) {
+    return {
+      error: normalizeAuthError(error, 'Failed to send password reset email'),
     };
   }
 }

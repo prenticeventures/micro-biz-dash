@@ -49,14 +49,20 @@ See `docs/reference/SIGNING_EXPLANATION.md` for why manual signing is used for R
 
 ### Step 1: Preflight (Required)
 
-1. Ensure `.env.local` exists with:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+1. Switch to production Supabase config:
+   ```bash
+   ./scripts/switch-env.sh prod
+   ```
 2. Run:
    ```bash
-   npm run ios:sync
+   npm run qa:ios
    ```
-   This now validates env vars and re-syncs the latest web bundle into iOS before archiving.
+   This runs typecheck + tests + build + iOS sync + bundle-target verification.
+3. Verify the synced bundle targets production project ref:
+   ```bash
+   rg -o "vgkpbslbfvcwvlmwkowj|zbtbtmybzuutxfntdyvp" ios/App/App/public/assets/index-*.js | sort -u
+   ```
+   Expected output for release: `zbtbtmybzuutxfntdyvp` only.
 
 ### Step 2: Build and Archive
 
@@ -75,6 +81,8 @@ See `docs/reference/SIGNING_EXPLANATION.md` for why manual signing is used for R
    - Select your team (JWMK399CXD)
    - Click "Upload"
 5. Wait 5-10 minutes for upload
+
+If uploading by script (`./scripts/upload-to-app-store.sh`), it now blocks upload when the IPA does not contain the expected production Supabase project ref.
 
 ### Step 4: Select Build in App Store Connect
 

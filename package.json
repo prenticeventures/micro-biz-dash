@@ -6,6 +6,11 @@
     "dev": "vite",
     "validate:env": "node scripts/validate-env.mjs",
     "build": "npm run validate:env && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:ci": "vitest run --reporter=verbose",
+    "qa:web": "./scripts/run-qa-gates.sh web",
+    "qa:ios": "./scripts/run-qa-gates.sh ios",
     "preview": "vite preview",
     "ios:sync": "npm run build && npx cap sync ios",
     "ios:open": "npx cap open ios",
@@ -21,14 +26,19 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.19",
+    "jsdom": "^28.1.0",
     "postcss": "^8.4.38",
     "sharp": "^0.34.5",
     "typescript": "^5.4.5",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }

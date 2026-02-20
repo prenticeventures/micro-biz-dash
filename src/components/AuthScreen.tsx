@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { signIn, signUp, getCurrentUser } from '../services/authService';
+import { signIn, signUp, getCurrentUser, requestPasswordReset } from '../services/authService';
 import type { UserProfile } from '../types/database';
 
 interface AuthScreenProps {
@@ -84,6 +84,29 @@ export function AuthScreen({ onAuthenticated, embedded = false }: AuthScreenProp
       }
   };
 
+  const handleForgotPassword = async () => {
+    setError('');
+    setSuccess('');
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Enter your email above, then tap Forgot password.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await requestPasswordReset(trimmedEmail);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess('Password reset email sent. Check your inbox and spam folder for the reset link.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Embedded mode - render inline without overlay
   if (embedded) {
     return (
@@ -138,6 +161,18 @@ export function AuthScreen({ onAuthenticated, embedded = false }: AuthScreenProp
               minLength={6}
             />
           </div>
+          {isLogin && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-gray-300 hover:text-white text-xs underline disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           {success && (
             <div className="bg-green-900/50 border border-green-600 text-green-200 px-3 py-2 rounded text-xs">
@@ -229,6 +264,18 @@ export function AuthScreen({ onAuthenticated, embedded = false }: AuthScreenProp
               minLength={6}
             />
           </div>
+          {isLogin && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-gray-300 hover:text-white text-sm underline disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           {success && (
             <div className="bg-green-900/50 border border-green-600 text-green-200 px-4 py-2 rounded text-sm">

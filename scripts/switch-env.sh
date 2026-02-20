@@ -42,24 +42,33 @@ else
     exit 1
 fi
 
-# Create new .env.local
+if [ "$TARGET" = "production" ]; then
+    TARGET_UPPER="PRODUCTION"
+    TARGET_LABEL="Production"
+else
+    TARGET_UPPER="DEVELOPMENT"
+    TARGET_LABEL="Development"
+fi
+
+EMAIL_CONFIRMATION_STATUS="DISABLED"
+if [ "$TARGET" = "production" ]; then
+    EMAIL_CONFIRMATION_STATUS="ENABLED"
+fi
+
 cat > "$ENV_FILE" << EOF
 # Supabase Configuration
 # This file is gitignored - contains sensitive credentials
 
 # ============================================================================
-# ${TARGET^^} ENVIRONMENT
+# ${TARGET_UPPER} ENVIRONMENT
 # ============================================================================
-# ${TARGET^} project: micro-biz-dash${TARGET:0:1}
-# - Email confirmation: $([ "$TARGET" == "production" ] && echo "ENABLED" || echo "DISABLED")
-# - $(if [ "$TARGET" == "production" ]; then echo "Production data"; else echo "Higher rate limits for testing"; fi)
+# ${TARGET_LABEL} project: micro-biz-dash
+# - Email confirmation: ${EMAIL_CONFIRMATION_STATUS}
+# - $([ "$TARGET" = "production" ] && echo "Production data" || echo "Higher rate limits for testing")
 VITE_SUPABASE_URL=${URL}
 VITE_SUPABASE_ANON_KEY=${KEY}
 EOF
 
-# Optional local tooling token (never required for app runtime).
-# Provide it via your shell env when running this script:
-#   SUPABASE_ACCESS_TOKEN=sbp_xxx ./scripts/switch-env.sh dev
 if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
     {
         echo ""
@@ -68,7 +77,7 @@ if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
     } >> "$ENV_FILE"
 fi
 
-echo -e "${GREEN}✓ Switched to ${TARGET^} environment${NC}"
+echo -e "${GREEN}✓ Switched to ${TARGET_LABEL} environment${NC}"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "  1. Restart your dev server: npm run dev"
