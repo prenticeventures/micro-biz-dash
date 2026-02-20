@@ -2,6 +2,17 @@ name: iOS Smoke Gate
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'App.tsx'
+      - 'components/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ios/**'
+      - 'vite.config.ts'
+      - '.github/workflows/ios-smoke-gate.yml'
   push:
     branches:
       - main
@@ -14,6 +25,7 @@ on:
       - 'package-lock.json'
       - 'ios/**'
       - 'vite.config.ts'
+      - '.github/workflows/ios-smoke-gate.yml'
 
 jobs:
   qa-ios:
