@@ -2,9 +2,17 @@
 
 **Date:** 2026-03-12
 **Last Updated:** 2026-03-12
-**Status:** Waiting on Apple App Review for version `1.0.4 (5)`
+**Status:** Guest-only mode is now the default product path; App Store build `1.0.4 (5)` remains under review
 
 ## What Was Completed Today
+
+### Online Services Disabled By Default
+- Production Supabase is paused on the free plan, which caused the live web app to hang or show auth-recovery warnings for returning players.
+- We responded by moving the product back to a guest-only default:
+  - sign-in, cloud save, and leaderboards are now behind `VITE_ENABLE_ONLINE_SERVICES=1`
+  - when that flag is off, the app does not attempt auth bootstrap, does not show login gates, and does not depend on Supabase to boot or progress
+  - auth, game-state, and stats services now short-circuit safely when online services are disabled so accidental future calls do not wake the paused backend path back up
+- The guest flow is now the expected happy path, not a degraded fallback.
 
 ### Level 2 Control Bug Fixed
 - Fixed the bug where a player could complete level 1, authenticate successfully, enter level 2, and then lose horizontal movement.
@@ -19,23 +27,21 @@
 
 ### Web Boot Hang Fixed
 - Found a second release-blocking issue on the web app: in some client states the app could remain stuck on the black `Loading...` screen.
-- Root cause was deeper than a missing timeout:
-  - the app boot path treated remote auth validation as a first-paint dependency
-  - `getCurrentUser()` called `supabase.auth.getUser()`, which can require a remote auth round-trip
-  - `AuthScreen` also redundantly checked auth again on mount
-  - several services repeatedly called `supabase.auth.getUser()` even when a cached session was already available locally
+- Root cause:
+  - startup treated remote auth validation as a first-paint dependency
+  - returning browsers with a cached Supabase session triggered account-restore work against a paused backend
+  - several services still assumed auth was available whenever called
 - Fix:
-  - switched startup to restore the local session first and hydrate profile/saved-game data in the background
-  - removed the redundant auth bootstrap inside `AuthScreen`
-  - replaced repeated `auth.getUser()` lookups in services with session-backed lookups
-  - kept a non-blocking degraded-mode warning if online services are slow
-  - added guest continuation when sign-in is temporarily unavailable after level 1
+  - online services are feature-flagged off by default
+  - startup immediately renders the menu in guest mode when online services are off
+  - auth/game-state/stats services all guard themselves when the feature is disabled
+  - the level 1 -> level 2 path now continues with no auth gate in the default build
 - Added regression coverage for:
-  - normal app boot reaching the main menu without global E2E bypass or degraded-service warnings
-  - auth bootstrap stall while the menu remains interactive
-  - guest level 1 completion continuing to level 2 when sign-in is unavailable
-- Strengthened Playwright so the required smoke suite no longer starts the entire app in global E2E mode.
-- Added a live production smoke gate (`npm run qa:live`) plus a scheduled GitHub workflow to probe the deployed site and real production backend.
+  - normal app boot reaching the main menu without hanging
+  - no degraded-service banners in the default guest-only build
+  - guest level 1 -> level 2 progression with movement still working
+- Strengthened Playwright so the required smoke suite no longer starts the app in a bypassed mode that misses real startup bugs.
+- Kept `qa:live` as the deployed-site smoke gate, but backend probes now only run when online services are intentionally re-enabled.
 
 ## Release / App Store Status
 
@@ -57,13 +63,14 @@
 ### Default Commands
 - `npm run qa:standard`
   - Default merge gate
-  - Runs typecheck, unit/component tests, production build validation, Supabase target verification, and Playwright smoke tests
+  - Runs typecheck, unit/component tests, production build validation, and Playwright smoke tests
 - `npm run qa:release`
   - Default iPhone release gate
   - Runs the full iOS quality gate including the packaged simulator smoke test
 - `npm run qa:live`
   - Default live web confidence gate after deploy
-  - Probes real production Supabase health and runs Playwright against `https://www.microbizdash.com`
+  - Runs Playwright against `https://www.microbizdash.com`
+  - Probes real backend health only if `VITE_ENABLE_ONLINE_SERVICES=1`
 
 ### Policy
 - No meaningful gameplay or release change should ship without automated coverage first.
@@ -104,14 +111,14 @@
 ## Likely Next Steps Tomorrow
 
 1. Check App Store Connect for review status of `1.0.4 (5)`.
-2. Confirm the GitHub PR fully merged and `main` reflects the release changes.
-3. Confirm the web deployment has picked up the new session-first auth bootstrap change.
+2. Confirm the web deployment is serving the guest-only default build with no auth-restore banner on first paint.
+3. If online accounts are ever needed again, re-enable them with `VITE_ENABLE_ONLINE_SERVICES=1` and restore Supabase health before exposing that path to players.
 4. If Apple rejects or requests changes, capture the exact rejection text and respond from there.
 5. Keep an eye on the scheduled production smoke workflow and any immediate production issues.
 
 ## Notes
 
-- Production Supabase config is currently active in `.env.local`.
+- Supabase is intentionally optional now; the default build should be treated as guest-only unless the online-services flag is explicitly enabled.
 - The simulator was shut down at the end of the session.
 - Maestro remains available as an optional extra local layer, but the reliable native gate is the packaged iOS smoke test.
-- In this local Codex environment, direct DNS resolution to the Supabase host failed for Node/curl probes, so `qa:live` could not be fully validated here even though browser smoke against the deployed site passed.
+- The current testing policy assumes guest-only web/iOS flows are the release-critical path while Supabase stays paused.

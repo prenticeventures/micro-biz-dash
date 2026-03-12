@@ -6,7 +6,15 @@
  */
 
 import type { User } from '@supabase/supabase-js';
-import { isSupabaseConfigured, supabase, supabaseAnonKey, supabaseUrl, TABLES } from '../lib/supabase';
+import {
+  areOnlineServicesEnabled,
+  isSupabaseConfigured,
+  onlineServicesDisabledMessage,
+  supabase,
+  supabaseAnonKey,
+  supabaseUrl,
+  TABLES,
+} from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 
 const NETWORK_ERROR_PATTERN = /load failed|failed to fetch|network request failed|networkerror/i;
@@ -31,6 +39,14 @@ function normalizeAuthError(error: unknown, fallback: string): string {
   return message;
 }
 
+function authFeatureDisabledResult() {
+  return {
+    user: null,
+    session: null,
+    error: onlineServicesDisabledMessage,
+  };
+}
+
 export function buildProfileFromSessionUser(user: User): UserProfile {
   const gameName =
     typeof user.user_metadata?.game_name === 'string' && user.user_metadata.game_name.trim()
@@ -49,6 +65,10 @@ export function buildProfileFromSessionUser(user: User): UserProfile {
 }
 
 export async function getSessionUser(): Promise<User | null> {
+  if (!areOnlineServicesEnabled) {
+    return null;
+  }
+
   try {
     const {
       data: { session },
@@ -67,6 +87,10 @@ export async function getSessionUser(): Promise<User | null> {
 }
 
 export async function getUserProfileById(userId: string): Promise<UserProfile | null> {
+  if (!areOnlineServicesEnabled) {
+    return null;
+  }
+
   const { data, error } = await supabase
     .from(TABLES.USERS)
     .select('*')
@@ -81,7 +105,7 @@ export async function getUserProfileById(userId: string): Promise<UserProfile | 
 }
 
 export async function isAuthServiceReachable(timeoutMs: number = 2500): Promise<boolean> {
-  if (!isSupabaseConfigured || !supabaseUrl || !supabaseAnonKey) {
+  if (!areOnlineServicesEnabled || !isSupabaseConfigured || !supabaseUrl || !supabaseAnonKey) {
     return false;
   }
 
@@ -133,6 +157,10 @@ export async function isAuthServiceReachable(timeoutMs: number = 2500): Promise<
  * @returns User profile and session, or error
  */
 export async function signUp(email: string, password: string, gameName: string) {
+  if (!areOnlineServicesEnabled) {
+    return authFeatureDisabledResult();
+  }
+
   try {
     // 1. Create auth user with game_name in metadata
     // The database trigger will automatically create the user profile
@@ -244,6 +272,10 @@ export async function signUp(email: string, password: string, gameName: string) 
  * @returns User profile and session, or error
  */
 export async function signIn(email: string, password: string) {
+  if (!areOnlineServicesEnabled) {
+    return authFeatureDisabledResult();
+  }
+
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -283,6 +315,10 @@ export async function signIn(email: string, password: string) {
  * @returns Error state (null on success)
  */
 export async function requestPasswordReset(email: string) {
+  if (!areOnlineServicesEnabled) {
+    return { error: onlineServicesDisabledMessage };
+  }
+
   const normalizedEmail = email.trim();
   if (!normalizedEmail) {
     return { error: 'Please enter your email first.' };
@@ -304,6 +340,10 @@ export async function requestPasswordReset(email: string) {
  * Sign out the current user
  */
 export async function signOut() {
+  if (!areOnlineServicesEnabled) {
+    return;
+  }
+
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
@@ -314,6 +354,10 @@ export async function signOut() {
  * @returns Current user profile, or null if not logged in
  */
 export async function getCurrentUser(): Promise<UserProfile | null> {
+  if (!areOnlineServicesEnabled) {
+    return null;
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) return null;
@@ -333,6 +377,10 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
  * @returns Updated profile, or error
  */
 export async function updateGameName(gameName: string) {
+  if (!areOnlineServicesEnabled) {
+    return { data: null, error: onlineServicesDisabledMessage };
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
@@ -362,6 +410,10 @@ export async function updateGameName(gameName: string) {
  * Check if user is authenticated
  */
 export async function isAuthenticated(): Promise<boolean> {
+  if (!areOnlineServicesEnabled) {
+    return false;
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
   return !!session;
 }

@@ -2,11 +2,13 @@
 
 This project now uses automated quality gates to prevent broken builds from shipping.
 
+Current product default: online services are disabled via feature flag, so auth/cloud-save/leaderboard checks are optional until that flag is turned back on.
+
 ## Standard Commands
 
 - `npm run qa:standard` is the default merge gate. It runs the web quality gate plus Playwright smoke coverage.
 - `npm run qa:release` is the default iPhone release gate. It runs the full iOS quality gate, including the packaged simulator smoke test.
-- `npm run qa:live` is the live production smoke gate. It checks the deployed web app and the real production backend.
+- `npm run qa:live` is the live production smoke gate. It checks the deployed web app, and only probes the real backend when online services are enabled.
 
 Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-facing policy doc. Use this file for the technical details of what each gate does.
 
@@ -16,20 +18,20 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
 - TypeScript typecheck (`npm run typecheck`)
 - Unit/component tests (`npm run test:ci`)
 - Production build (`npm run build`)
-- Supabase target verification in built bundle (`dist/assets/index-*.js`)
+- Supabase target verification in built bundle when online services are enabled
 
 ### 2) iOS Quality Gate (`npm run qa:ios`)
 - Runs all web quality gate checks above
 - Syncs web bundle into iOS (`npm run ios:sync`)
-- Verifies synced iOS bundle points to expected Supabase project ref
-- Boots an iPhone simulator, builds the Capacitor app, and runs the packaged level-1 -> auth -> level-2 -> movement smoke test
+- Verifies synced iOS bundle points to expected Supabase project ref when online services are enabled
+- Boots an iPhone simulator, builds the Capacitor app, and runs the packaged level-1 -> level-2 -> movement smoke test
 
 ### 3) App Store Upload Guard
 - `scripts/upload-to-app-store.sh` now validates the exported IPA bundle points to production Supabase before upload.
 - Upload is blocked if the IPA contains wrong project refs.
 
 ### 4) Live Production Smoke Gate (`npm run qa:live`)
-- Probes the real production Supabase auth endpoint and anon leaderboard query via `scripts/check-online-services.mjs`
+- Probes the real production Supabase auth endpoint and anon leaderboard query via `scripts/check-online-services.mjs` only when online services are enabled
 - Runs Playwright against `https://www.microbizdash.com`
 - Fails if the deployed site does not reach the main menu cleanly
 
@@ -41,28 +43,27 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
 - Add tests for transitions that have broken before: guest level 1 -> auth -> level 2, life loss -> restart, save/resume, and victory flow.
 
 ### 2) UI/component tests
-- Keep `vitest` + Testing Library for auth flows, menu overlays, HUD state, and control handoff between screens.
+- Keep `vitest` + Testing Library for guest progression, menu overlays, HUD state, and control handoff between screens.
 - Mock the canvas when the test only needs to validate state transitions or input wiring.
 
 ### 3) Browser smoke tests
 - Use Playwright for high-value happy paths in the real browser shell.
 - Required browser smoke coverage now includes:
   - normal app boot without global E2E bypass
-  - guest level 1 -> auth -> level 2 transition with movement still working
+  - guest level 1 -> level 2 transition with movement still working
 - The risky transition still uses the app's `?e2e` harness, but the suite no longer starts the entire app in global E2E mode.
-- This matters because a globally bypassed auth/bootstrap path can hide real startup failures, like a loading screen that never resolves.
-- The app boot path now restores the local session first and only hydrates remote profile/saved-game data in the background. Remote auth is no longer a first-paint dependency.
+- With online services disabled by default, startup should render the menu immediately and never depend on backend availability.
 - Treat this as a fast regression net for gameplay flows in the web runtime, not as the only protection for the native iPhone build.
 
 ### 3b) Live production smoke
 - Deterministic local gates are necessary but not sufficient.
-- The previous process missed a real bug because local CI did not check the deployed site or the real production backend.
-- `qa:live` closes that gap by checking the production URL and the actual online services players depend on.
+- The previous process missed real bugs because local CI did not check the deployed site and was too coupled to backend assumptions.
+- `qa:live` now always checks the production URL and only checks backend services when the feature flag says players should be using them.
 
 ### 4) Native iPhone smoke tests
 - Use the packaged simulator smoke test (`npm run test:ios:smoke`) as the required native gate before release.
 - The app now has a native smoke harness (`VITE_E2E_MODE=1 VITE_E2E_NATIVE_SMOKE=1`) that self-runs the highest-risk flow inside the Capacitor shell and writes a machine-readable pass/fail result back to iOS preferences.
-- Keep the scope intentionally small and deterministic: app launch, guest-to-auth transition, level 2 load, and movement after login.
+- Keep the scope intentionally small and deterministic: app launch, guest progression into level 2, and movement after progression.
 - Keep `npm run test:ios:maestro` as an optional exploratory layer if you want visual touch-script coverage on a compatible local setup, but do not rely on it as the only native protection.
 
 ### 5) Manual release checklist

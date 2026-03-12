@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      VITE_ENABLE_ONLINE_SERVICES: '0'
       VITE_SUPABASE_URL: https://zbtbtmybzuutxfntdyvp.supabase.co
-      VITE_SUPABASE_ANON_KEY: sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
+      VITE_SUPABASE_ANON_KEY: sb_publishable_ci_dummy_key_1234567890
     steps:
       - name: Checkout
         uses: actions/checkout@v4

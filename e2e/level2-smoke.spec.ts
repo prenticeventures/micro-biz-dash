@@ -9,15 +9,13 @@ function getDebugX(debugText: string | null): number {
   return Number(match[1]);
 }
 
-test('guest flow reaches level 2 and movement still works after login', async ({ page }) => {
+test('guest flow reaches level 2 without auth gating and movement still works', async ({ page }) => {
   await page.goto('/?e2e');
 
+  await expect(page.getByText(/full game available without an account/i)).toBeVisible();
   await page.getByRole('button', { name: /play level 1 free/i }).click();
   await page.getByRole('button', { name: 'E2E COMPLETE LEVEL' }).click();
   await page.getByRole('button', { name: /next level/i }).click();
-  await expect(page.getByRole('button', { name: 'E2E LOGIN' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'E2E LOGIN' }).click();
 
   const debugState = page.getByTestId('e2e-debug-state');
   await expect(debugState).toContainText('STATUS:PLAYING');

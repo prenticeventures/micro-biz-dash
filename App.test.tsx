@@ -1,13 +1,8 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import App from './App';
-import {
-  getSessionUser,
-  getUserProfileById,
-  isAuthServiceReachable,
-} from './src/services/authService';
 import type { User } from '@supabase/supabase-js';
-import type { UserProfile } from './src/types/database';
+import App from './App';
+import { getSessionUser } from './src/services/authService';
 import {
   completeGameSession,
   loadGameState,
@@ -85,7 +80,8 @@ vi.mock('./src/services/statsService', () => ({
 }));
 
 vi.mock('./src/lib/supabase', () => ({
-  isSupabaseConfigured: true,
+  areOnlineServicesEnabled: false,
+  isSupabaseConfigured: false,
   hasPersistedSupabaseSession: vi.fn(() => false),
 }));
 
@@ -103,8 +99,6 @@ vi.mock('./utils/retroAudio', () => ({
 }));
 
 const mockGetSessionUser = vi.mocked(getSessionUser);
-const mockGetUserProfileById = vi.mocked(getUserProfileById);
-const mockIsAuthServiceReachable = vi.mocked(isAuthServiceReachable);
 const mockLoadGameState = vi.mocked(loadGameState);
 const mockSaveGameState = vi.mocked(saveGameState);
 const mockStartNewGame = vi.mocked(startNewGame);
@@ -113,12 +107,10 @@ const mockUpdateUserStats = vi.mocked(updateUserStats);
 const mockGetLeaderboard = vi.mocked(getLeaderboard);
 const mockSubscribeToLeaderboard = vi.mocked(subscribeToLeaderboard);
 
-describe('App guest auth continuation', () => {
+describe('App guest-only mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSessionUser.mockResolvedValue(null);
-    mockGetUserProfileById.mockResolvedValue(null);
-    mockIsAuthServiceReachable.mockResolvedValue(true);
     mockLoadGameState.mockResolvedValue(null);
     mockSaveGameState.mockResolvedValue({ data: null, error: null } as any);
     mockStartNewGame.mockResolvedValue({ data: null, error: null } as any);
@@ -128,11 +120,7 @@ describe('App guest auth continuation', () => {
     mockSubscribeToLeaderboard.mockReturnValue(() => undefined);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('keeps touch controls active after guest login advances into level 2', async () => {
+  it('continues from level 1 into level 2 without a login gate', async () => {
     const user = userEvent.setup();
 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
@@ -146,55 +134,7 @@ describe('App guest auth continuation', () => {
 
     render(<App />);
 
-    await user.click(await screen.findByRole('button', { name: /play level 1 free/i }));
-    await user.click(screen.getByRole('button', { name: /mock complete level/i }));
-    await user.click(await screen.findByRole('button', { name: /next level/i }));
-    await user.click(await screen.findByRole('button', { name: /mock login/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/lvl 2/i)).toBeInTheDocument();
-      expect(screen.getByTestId('game-canvas-state')).toHaveTextContent('"status":"PLAYING"');
-    });
-
-    fireEvent.pointerDown(screen.getByRole('button', { name: /move right/i }), { pointerId: 1 });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('game-canvas-state')).toHaveTextContent('"touchRightPressed":true');
-    });
-  });
-
-  it('keeps the menu interactive while auth bootstrap stalls', async () => {
-    vi.useFakeTimers();
-    mockGetSessionUser.mockImplementation(
-      () => new Promise<User | null>(() => undefined)
-    );
-
-    render(<App />);
-
-    expect(screen.getByRole('button', { name: /play level 1 free/i })).toBeInTheDocument();
-    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-
-    await act(async () => {
-      vi.advanceTimersByTime(4500);
-      await Promise.resolve();
-    });
-
-    vi.useRealTimers();
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /play level 1 free/i })).toBeInTheDocument();
-    });
-
-    expect(
-      screen.getByText(/online services took too long to respond/i)
-    ).toBeInTheDocument();
-  });
-
-  it('continues to level 2 without login when the sign-in service is unavailable', async () => {
-    const user = userEvent.setup();
-    mockIsAuthServiceReachable.mockResolvedValue(false);
-
-    render(<App />);
+    expect(screen.getByText(/full game available without an account/i)).toBeInTheDocument();
 
     await user.click(await screen.findByRole('button', { name: /play level 1 free/i }));
     await user.click(screen.getByRole('button', { name: /mock complete level/i }));
@@ -206,8 +146,11 @@ describe('App guest auth continuation', () => {
     });
 
     expect(screen.queryByRole('button', { name: /mock login/i })).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/sign-in is temporarily unavailable\. continuing without account save\./i)
-    ).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: /move right/i }), { pointerId: 1 });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('game-canvas-state')).toHaveTextContent('"touchRightPressed":true');
+    });
   });
 });

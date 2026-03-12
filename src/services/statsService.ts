@@ -4,7 +4,7 @@
  * Handles user statistics tracking and leaderboard queries.
  */
 
-import { supabase, TABLES } from '../lib/supabase';
+import { areOnlineServicesEnabled, supabase, TABLES } from '../lib/supabase';
 import { getSessionUser } from './authService';
 import type { UserStats, LeaderboardEntry } from '../types/database';
 
@@ -26,6 +26,10 @@ export async function updateUserStats(
   gameCompleted: boolean = false,
   incrementSession: boolean = false
 ) {
+  if (!areOnlineServicesEnabled) {
+    return { data: null, error: 'Online stats are disabled for this build.' };
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
@@ -87,6 +91,10 @@ export async function updateUserStats(
  * @returns User's stats, or null if not found
  */
 export async function getUserStats(): Promise<UserStats | null> {
+  if (!areOnlineServicesEnabled) {
+    return null;
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) return null;
@@ -111,6 +119,10 @@ export async function getUserStats(): Promise<UserStats | null> {
  * @returns Array of top 3 players by best_score
  */
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  if (!areOnlineServicesEnabled) {
+    return [];
+  }
+
   try {
     const { data, error } = await supabase
       .from(TABLES.USER_STATS)
@@ -145,6 +157,11 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
 export function subscribeToLeaderboard(
   callback: (entries: LeaderboardEntry[]) => void
 ) {
+  if (!areOnlineServicesEnabled) {
+    callback([]);
+    return () => undefined;
+  }
+
   const channel = supabase
     .channel('leaderboard-updates')
     .on(

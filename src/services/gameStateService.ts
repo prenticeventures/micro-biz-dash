@@ -5,7 +5,7 @@
  * Allows users to resume where they left off.
  */
 
-import { supabase, TABLES } from '../lib/supabase';
+import { areOnlineServicesEnabled, supabase, TABLES } from '../lib/supabase';
 import { getSessionUser } from './authService';
 import type { GameSession } from '../types/database';
 
@@ -28,6 +28,10 @@ export async function saveGameState(
   playerY: number,
   gameState: string
   ) {
+  if (!areOnlineServicesEnabled) {
+    return { data: null, error: 'Online save is disabled for this build.' };
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
@@ -101,6 +105,10 @@ export async function saveGameState(
  * @returns Active game session, or null if none exists
  */
 export async function loadGameState(): Promise<GameSession | null> {
+  if (!areOnlineServicesEnabled) {
+    return null;
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) return null;
@@ -131,6 +139,10 @@ export async function loadGameState(): Promise<GameSession | null> {
  * @returns New session, or error
  */
 export async function startNewGame() {
+  if (!areOnlineServicesEnabled) {
+    return { data: null, error: 'Online save is disabled for this build.' };
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
@@ -171,6 +183,10 @@ export async function startNewGame() {
  * @param sessionId - Session ID to complete
  */
 export async function completeGameSession(sessionId: string) {
+  if (!areOnlineServicesEnabled) {
+    return { error: 'Online save is disabled for this build.' };
+  }
+
   try {
     const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');

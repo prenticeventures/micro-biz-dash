@@ -2,6 +2,8 @@
 
 This is the default testing routine for Micro-Biz Dash. The goal is simple: no gameplay or release change ships without automated coverage running first.
 
+Current product default: online services are feature-flagged off, so the game should remain fully playable without sign-in.
+
 ## Default Rule
 
 - For every meaningful code change, run `npm run qa:standard` before merging.
@@ -22,10 +24,9 @@ This runs:
 - TypeScript checks
 - Unit/component tests
 - Production build validation
-- Supabase target verification in the built web bundle
 - Playwright browser smoke tests
   - normal app boot without E2E bypass
-  - guest level 1 -> auth -> level 2 gameplay smoke via `?e2e`
+  - guest level 1 -> level 2 gameplay smoke via `?e2e`
 
 Use this for normal day-to-day development and before merging pull requests.
 
@@ -41,7 +42,7 @@ This runs everything in the standard gate, plus:
 - Packaged native smoke flow for:
   - app launch
   - guest continuation
-  - auth transition to level 2
+  - level 2 progression without auth gating
   - movement still working in level 2
 
 Use this before:
@@ -57,7 +58,7 @@ npm run qa:live
 ```
 
 This runs:
-- a real Supabase auth + anon-data health probe against the configured production backend
+- a real Supabase auth + anon-data health probe only when online services are enabled
 - a Playwright smoke test against the deployed site at `https://www.microbizdash.com`
 - a startup assertion that the live site reaches the menu without hanging or showing degraded-service warnings
 
@@ -73,6 +74,7 @@ Use this:
 - `qa:live` is the minimum bar for production web confidence after deploy.
 - If `qa:release` fails, do not submit the app.
 - If `qa:live` fails, treat the deployed web experience as unhealthy until proven otherwise.
+- If online services are intentionally disabled, guest-only behavior is the expected happy path, not a degraded fallback.
 - If a bug reaches players that should have been caught by the current gates, add a new automated regression test before the next release.
 - Required smoke tests must always include at least one normal startup path without global E2E bypasses.
 - E2E harnesses are allowed for specific risky flows, but they cannot be the only required browser coverage.

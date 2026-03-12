@@ -7,6 +7,10 @@ import {
   signUp,
 } from '../services/authService';
 
+vi.mock('../lib/supabase', () => ({
+  areOnlineServicesEnabled: true,
+}));
+
 vi.mock('../services/authService', () => ({
   signIn: vi.fn(),
   signUp: vi.fn(),

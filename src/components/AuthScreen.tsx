@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { signIn, signUp, requestPasswordReset } from '../services/authService';
+import { areOnlineServicesEnabled } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 
 interface AuthScreenProps {
@@ -21,6 +22,24 @@ export function AuthScreen({ onAuthenticated, embedded = false }: AuthScreenProp
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (!areOnlineServicesEnabled) {
+    return (
+      <div className={embedded ? 'w-full' : 'absolute inset-0 bg-black/90 flex items-center justify-center z-50'}>
+        <div className="bg-gray-800 border-2 border-gray-600 rounded-lg p-6 sm:p-8 max-w-md w-full mx-4 text-center">
+          <h2 className="text-lg sm:text-2xl text-yellow-400 mb-4 font-['Press_Start_2P']">
+            GUEST MODE
+          </h2>
+          <p className="text-gray-200 text-sm sm:text-base font-mono leading-relaxed">
+            Online accounts are currently disabled in this build.
+          </p>
+          <p className="mt-3 text-gray-400 text-xs sm:text-sm font-mono">
+            The full game is available without signing in.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

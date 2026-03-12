@@ -7,16 +7,22 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+export const areOnlineServicesEnabled = import.meta.env.VITE_ENABLE_ONLINE_SERVICES === '1';
+export const onlineServicesDisabledMessage =
+  'Online accounts are currently disabled. The full game is available without signing in.';
+
 // Get Supabase credentials from environment variables
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
-export const supabaseConfigError = isSupabaseConfigured
+export const isSupabaseConfigured = areOnlineServicesEnabled && Boolean(supabaseUrl && supabaseAnonKey);
+export const supabaseConfigError = !areOnlineServicesEnabled
   ? null
-  : 'Missing Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). Running in guest-only mode.';
+  : isSupabaseConfigured
+    ? null
+    : 'Missing Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). Running in guest-only mode.';
 
-if (!isSupabaseConfigured) {
+if (areOnlineServicesEnabled && !isSupabaseConfigured) {
   console.error(
     'Missing Supabase environment variables. Running in guest-only mode.'
   );
@@ -31,6 +37,10 @@ export const supabaseProjectRef = projectRefMatch?.[1] ?? 'unknown-project';
 export const supabaseStorageKey = `sb-${supabaseProjectRef}-auth-token`;
 
 export function hasPersistedSupabaseSession(): boolean {
+  if (!areOnlineServicesEnabled) {
+    return false;
+  }
+
   try {
     return window.localStorage.getItem(supabaseStorageKey) !== null;
   } catch (error) {
