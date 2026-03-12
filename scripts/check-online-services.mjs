@@ -62,9 +62,16 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
 }
 
 const fileEnv = loadMergedEnv();
+const onlineServicesEnabled =
+  (process.env.VITE_ENABLE_ONLINE_SERVICES ?? fileEnv.VITE_ENABLE_ONLINE_SERVICES ?? '0').trim() === '1';
 const resolved = Object.fromEntries(
   REQUIRED_KEYS.map((key) => [key, process.env[key] ?? fileEnv[key] ?? ''])
 );
+
+if (!onlineServicesEnabled) {
+  console.log('[check-online-services] Online services disabled; skipping live Supabase probes.');
+  process.exit(0);
+}
 
 for (const key of REQUIRED_KEYS) {
   if (!resolved[key]) {

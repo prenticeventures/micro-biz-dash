@@ -36,15 +36,19 @@ Outdated or historical documentation kept for reference:
 ## 🚀 Quick Links
 
 **New to the project?** Start here:
-1. [Backend Setup](setup/BACKEND_SETUP.md)
-2. [iOS Setup](setup/IOS_SETUP.md)
-3. [Developer Account Info](reference/DEVELOPER_ACCOUNT_INFO.md)
+1. [Current Project Handoff](CURRENT_DEBUG_SESSION.md)
+2. [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md)
+3. [iOS Setup](setup/IOS_SETUP.md)
 
 **Submitting to App Store?**
 1. [App Store Submission Guide](app-store/SUBMISSION_GUIDE.md)
 2. [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md)
 3. [QA Automation](QA_AUTOMATION.md)
 4. [Current Project Handoff](CURRENT_DEBUG_SESSION.md)
+
+**Need optional backend docs later?**
+- [Backend Setup](setup/BACKEND_SETUP.md)
+- [Web & Mobile Backend](reference/WEB_AND_MOBILE_BACKEND.md)
 
 **Need technical details?**
 - Check the [Reference](reference/) directory
@@ -55,3 +59,4 @@ Outdated or historical documentation kept for reference:
 - Include troubleshooting sections where relevant
 - Keep status information current
 - Archive outdated information rather than deleting
+- Treat online-services docs as optional unless `VITE_ENABLE_ONLINE_SERVICES=1`

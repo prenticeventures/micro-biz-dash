@@ -1,27 +1,21 @@
 # Production Deployment Checklist
 
-**Last Updated:** January 27, 2026
+**Last Updated:** March 12, 2026
 
 Use this checklist when deploying to production.
 
 ## Pre-Deployment Verification
 
-### Database ✅
-- [x] Production database schema applied
-- [x] All tables exist (users, user_stats, game_sessions)
-- [x] Trigger `on_auth_user_created` is ENABLED
-- [x] Function `handle_new_user()` exists
-- [x] All RLS policies configured (8 policies)
-- [x] Email confirmation enabled in production
+### Product Mode
+- [x] Confirm whether this deploy is guest-only default or an online-services re-enable
+- [x] Default expected mode is guest-only (`VITE_ENABLE_ONLINE_SERVICES` unset or `0`)
+- [ ] If re-enabling online services, confirm the Supabase project is active before exposing auth to players
 
 ### Code
-- [x] Production trigger function updated with error handling (2026-01-27)
-- [x] Retry timeout increased for production (2026-01-27)
 - [ ] `npm run qa:release` passes on the release candidate
+- [ ] `npm run qa:live` passes after web deploy
 - [ ] No console errors in browser
-- [ ] Authentication flow tested ⏳ **BLOCKED: Rate limit**
-- [ ] Game state saving/loading tested
-- [ ] Leaderboard tested
+- [ ] Guest level 1 -> level 2 flow tested
 - [ ] Lives system tested
 
 ## Build & Deploy
@@ -44,10 +38,16 @@ This creates optimized production files in `dist/` folder.
 
 **In your hosting platform (Vercel, Netlify, etc.):**
 
-Set these environment variables:
+Set this for the default guest-only build:
 ```
+VITE_ENABLE_ONLINE_SERVICES=0
+```
+
+Only if you intentionally want to bring auth/save/leaderboards back:
+```
+VITE_ENABLE_ONLINE_SERVICES=1
 VITE_SUPABASE_URL=https://zbtbtmybzuutxfntdyvp.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
+VITE_SUPABASE_ANON_KEY=your-publishable-key
 ```
 
 **Important:** 
@@ -56,6 +56,7 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
 - Restart deployment after setting variables
 - `VITE_` variables are client-visible by design (web + iOS bundle). Do not put privileged secrets there.
 - Keep privileged credentials (for example Supabase service role keys) only in server-side env vars without `VITE_`.
+- Do not enable online services unless the backend is healthy and intentionally part of the release scope.
 
 ### Step 3: Deploy
 
@@ -76,29 +77,38 @@ netlify deploy --prod
 ### Step 4: Verify Deployment
 
 - [ ] Site loads without errors
-- [ ] Authentication signup works ⏳ **Testing blocked by rate limit (2026-01-27)**
+- [ ] Game starts and plays correctly
+- [ ] Level 1 completes and continues to level 2 with no login gate
+- [ ] No console errors
+- [ ] No auth-restore or online-services warning banners in the default guest-only build
+
+**Optional online-services verification:** only run if `VITE_ENABLE_ONLINE_SERVICES=1`
+- [ ] Authentication signup works
 - [ ] Email confirmation received
 - [ ] Login works after confirmation
-- [ ] Game starts and plays correctly
 - [ ] Game state saves
 - [ ] Leaderboard displays
-- [ ] No console errors
-
-**Note:** Production trigger function was updated 2026-01-27. Testing will resume once rate limit resets.
 
 ## Post-Deployment
 
 ### Monitor
-- [ ] Check Supabase dashboard for new user signups
 - [ ] Monitor for errors in browser console
+- [ ] Watch the scheduled `production-smoke` workflow
+- [ ] Confirm the live site still reaches the menu normally after deployment
+
+**If online services are enabled for this release:**
+- [ ] Check Supabase dashboard for new user signups
 - [ ] Check database for game sessions being created
 - [ ] Verify leaderboard updates
 
 ### Test Production Features
+- [ ] Play through a level
+- [ ] Continue into level 2
+- [ ] Die and verify lives system works
+
+**If online services are enabled for this release:**
 - [ ] Sign up with new email
 - [ ] Confirm email and log in
-- [ ] Play through a level
-- [ ] Die and verify lives system works
 - [ ] Complete a level and check stats
 - [ ] Check leaderboard shows your score
 
@@ -108,7 +118,7 @@ If something goes wrong:
 
 1. **Revert environment variables** to development (if needed)
 2. **Redeploy previous working version**
-3. **Check Supabase logs** for errors
+3. **If online services were enabled, check Supabase logs** for errors
 4. **Review browser console** for client-side errors
 
 ## Environment Switching
@@ -132,19 +142,14 @@ npm run dev
 ## Important Notes
 
 ### Email Confirmation
-- **Production has email confirmation ENABLED** ✅
-- Users must check email and click confirmation link
-- This is correct for production security
+- Only relevant when online services are intentionally enabled
 
 ### Data Isolation
-- Development and production use separate Supabase projects
-- No data mixing between environments
-- Safe to test in dev without affecting production
+- Only relevant when online services are enabled
 
 ### Security
-- RLS policies ensure users can only access their own data
-- Leaderboard is public read-only (scores only)
-- All authentication handled by Supabase Auth
+- The default guest-only build does not depend on a third-party auth provider at runtime
+- If online services are enabled later, re-validate the Supabase auth and RLS assumptions before release
 
 ## Troubleshooting
 
@@ -159,6 +164,7 @@ npm run dev
 - Check hosting platform logs
 
 ### Authentication Not Working
+- If this is a guest-only release, make sure `VITE_ENABLE_ONLINE_SERVICES` is `0` or unset
 - Verify production Supabase project is active
 - Check environment variables are correct
 - Verify trigger is enabled in production database

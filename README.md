@@ -12,9 +12,8 @@ Micro-Biz Dash is a retro platformer game featuring:
 - 5 challenging levels
 - Retro Game Boy-style controls
 - Victory celebration animations
-- Score tracking and leaderboards
-- Save/load game state
-- User authentication
+- Guest-only gameplay by default
+- Optional online services behind a feature flag
 
 ## 🚀 Quick Start
 
@@ -39,7 +38,7 @@ Micro-Biz Dash is a retro platformer game featuring:
 
 3. Set up environment variables:
    - Create `.env.local` file
-   - Add your Supabase credentials (see [Backend Setup](#backend-setup))
+   - Leave online services off by default, or add the feature flag and Supabase credentials later if you want to re-enable them
 
 4. Run the development server:
    ```bash
@@ -74,7 +73,7 @@ Micro-Biz Dash is a retro platformer game featuring:
 
 - **Frontend:** React, TypeScript, Vite
 - **Mobile:** Capacitor (iOS)
-- **Backend:** Supabase (PostgreSQL, Auth, Real-time)
+- **Backend:** Optional Supabase integration (currently disabled by default)
 - **Styling:** CSS (retro pixel art style)
 - **Audio:** Web Audio API
 
@@ -88,10 +87,8 @@ Micro-Biz Dash is a retro platformer game featuring:
 - ✅ **Web App** - Fully functional
 - ✅ **iOS App** - Built and tested
 - ✅ **App Store** - Version `1.0.4 (5)` submitted for review (March 12, 2026)
-- ✅ **Backend** - Supabase integration complete
-- ✅ **Authentication** - User sign up/login working
-- ✅ **Game State** - Save/load functionality
-- ✅ **Statistics** - Leaderboard and stats tracking
+- ✅ **Core Gameplay** - Full guest-only game flow enabled by default
+- ⏸️ **Online Services** - Auth/save/leaderboard path is feature-flagged off by default
 
 ## 📁 Project Structure
 
@@ -118,14 +115,14 @@ micro-biz-dash_-2026-edition/
 # Development
 npm run dev              # Start dev server
 npm run build            # Build for production
-npm run validate:env     # Check required Supabase vars
+npm run validate:env     # Check env; Supabase values only required when online services are enabled
 npm run typecheck        # TypeScript checks
 npm run test:ci          # Run automated tests once
 npm run qa:standard      # Standard merge gate: web checks + Playwright smoke
 npm run qa:web           # Full automated web quality gate
 npm run qa:release       # Standard iPhone release gate
 npm run qa:ios           # Full automated iOS quality gate
-npm run qa:live          # Production web smoke gate: deployed site + live backend
+npm run qa:live          # Production web smoke gate; live backend probes only run when online services are enabled
 
 # iOS
 npm run ios:sync         # Build and sync to iOS
@@ -143,14 +140,22 @@ Copy `.env.example` to `.env.local` and fill in values:
 cp .env.example .env.local
 ```
 
-Required values:
+Default guest-only mode:
 
 ```env
+# Leave this unset or 0 to keep the game fully guest-only
+# VITE_ENABLE_ONLINE_SERVICES=1
+```
+
+If you later want to re-enable auth/save/leaderboards:
+
+```env
+VITE_ENABLE_ONLINE_SERVICES=1
 VITE_SUPABASE_URL=https://[your-project-id].supabase.co
 VITE_SUPABASE_ANON_KEY=[your-publishable-key]
 ```
 
-`npm run build` now fails fast if either value is missing.
+`npm run build` only requires Supabase values when `VITE_ENABLE_ONLINE_SERVICES=1`.
 
 See [Backend Setup](docs/setup/BACKEND_SETUP.md) for detailed instructions.
 

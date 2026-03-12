@@ -51,6 +51,8 @@ function loadMergedEnv() {
 }
 
 const fileEnv = loadMergedEnv();
+const onlineServicesEnabled =
+  (process.env.VITE_ENABLE_ONLINE_SERVICES ?? fileEnv.VITE_ENABLE_ONLINE_SERVICES ?? '0').trim() === '1';
 const requiredKeys = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
 const resolved = Object.fromEntries(
   requiredKeys.map((key) => [key, process.env[key] ?? fileEnv[key] ?? ''])
@@ -58,24 +60,26 @@ const resolved = Object.fromEntries(
 
 const errors = [];
 
-for (const key of requiredKeys) {
-  const value = resolved[key].trim();
-  if (!value) {
-    errors.push(`${key} is missing.`);
-    continue;
+if (onlineServicesEnabled) {
+  for (const key of requiredKeys) {
+    const value = resolved[key].trim();
+    if (!value) {
+      errors.push(`${key} is missing.`);
+      continue;
+    }
+
+    if (value.includes('[your-') || value.includes('YOUR_')) {
+      errors.push(`${key} still contains a placeholder value.`);
+    }
   }
 
-  if (value.includes('[your-') || value.includes('YOUR_')) {
-    errors.push(`${key} still contains a placeholder value.`);
+  if (resolved.VITE_SUPABASE_URL && !/^https?:\/\/.+/i.test(resolved.VITE_SUPABASE_URL)) {
+    errors.push('VITE_SUPABASE_URL must be a valid http(s) URL.');
   }
-}
 
-if (resolved.VITE_SUPABASE_URL && !/^https?:\/\/.+/i.test(resolved.VITE_SUPABASE_URL)) {
-  errors.push('VITE_SUPABASE_URL must be a valid http(s) URL.');
-}
-
-if (resolved.VITE_SUPABASE_ANON_KEY && resolved.VITE_SUPABASE_ANON_KEY.length < 20) {
-  errors.push('VITE_SUPABASE_ANON_KEY looks too short.');
+  if (resolved.VITE_SUPABASE_ANON_KEY && resolved.VITE_SUPABASE_ANON_KEY.length < 20) {
+    errors.push('VITE_SUPABASE_ANON_KEY looks too short.');
+  }
 }
 
 if (errors.length > 0) {
@@ -87,4 +91,8 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('[validate-env] Required Supabase env vars are present.');
+if (onlineServicesEnabled) {
+  console.log('[validate-env] Online services enabled and required Supabase env vars are present.');
+} else {
+  console.log('[validate-env] Online services disabled; skipping Supabase env requirements.');
+}

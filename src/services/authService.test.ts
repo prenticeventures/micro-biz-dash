@@ -8,8 +8,15 @@ import {
 } from './authService';
 import { supabase } from '../lib/supabase';
 
+let onlineServicesEnabled = true;
+
 vi.mock('../lib/supabase', () => ({
+  get areOnlineServicesEnabled() {
+    return onlineServicesEnabled;
+  },
   isSupabaseConfigured: true,
+  onlineServicesDisabledMessage:
+    'Online accounts are currently disabled. The full game is available without signing in.',
   supabaseUrl: 'https://example.supabase.co',
   supabaseAnonKey: 'sb_publishable_test_key_1234567890',
   supabase: {
@@ -37,6 +44,7 @@ const mockedSupabase = supabase as any;
 describe('authService error handling', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    onlineServicesEnabled = true;
   });
 
   it('normalizes load failed during sign-in into user-friendly network message', async () => {
@@ -77,6 +85,7 @@ describe('authService error handling', () => {
 describe('session-backed auth bootstrap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    onlineServicesEnabled = true;
   });
 
   it('reads the cached session user without calling getUser', async () => {
@@ -146,6 +155,7 @@ describe('session-backed auth bootstrap', () => {
 describe('isAuthServiceReachable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    onlineServicesEnabled = true;
   });
 
   it('returns true when auth settings and anon leaderboard access succeed', async () => {
@@ -167,6 +177,7 @@ describe('isAuthServiceReachable', () => {
 describe('requestPasswordReset', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    onlineServicesEnabled = true;
   });
 
   it('rejects empty email', async () => {
@@ -194,5 +205,49 @@ describe('requestPasswordReset', () => {
     expect(result.error).toBe(
       'Network error contacting the sign-in service. Please check your connection and try again.'
     );
+  });
+});
+
+describe('feature flag disabled', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    onlineServicesEnabled = false;
+  });
+
+  it('short-circuits sign-in without touching Supabase', async () => {
+    const result = await signIn('user@example.com', 'password123');
+
+    expect(result.error).toBe(
+      'Online accounts are currently disabled. The full game is available without signing in.'
+    );
+    expect(mockedSupabase.auth.signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it('short-circuits sign-up without touching Supabase', async () => {
+    const result = await signUp('new@example.com', 'password123', 'Player');
+
+    expect(result.error).toBe(
+      'Online accounts are currently disabled. The full game is available without signing in.'
+    );
+    expect(mockedSupabase.auth.signUp).not.toHaveBeenCalled();
+  });
+
+  it('returns null for cached session user when services are disabled', async () => {
+    const sessionUser = await getSessionUser();
+
+    expect(sessionUser).toBeNull();
+    expect(mockedSupabase.auth.getSession).not.toHaveBeenCalled();
+  });
+
+  it('returns false for auth reachability when services are disabled', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const reachable = await isAuthServiceReachable(1000);
+
+    expect(reachable).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
   });
 });

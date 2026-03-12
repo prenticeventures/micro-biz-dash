@@ -9,7 +9,6 @@ import {
   getSessionUser,
   getUserProfileById,
   isAuthServiceReachable,
-  signOut,
 } from './src/services/authService';
 import { saveGameState, loadGameState, startNewGame, completeGameSession } from './src/services/gameStateService';
 import { updateUserStats } from './src/services/statsService';
@@ -20,7 +19,11 @@ import type { GameDebugSnapshot } from './types';
 import { GameStatus } from './types';
 import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
-import { hasPersistedSupabaseSession, isSupabaseConfigured } from './src/lib/supabase';
+import {
+  areOnlineServicesEnabled,
+  hasPersistedSupabaseSession,
+  isSupabaseConfigured,
+} from './src/lib/supabase';
 
 const AUTH_BOOT_TIMEOUT_MS = 4000;
 
@@ -41,7 +44,7 @@ const App: React.FC = () => {
   });
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(
-    Boolean(!isE2EMode && isSupabaseConfigured && hasStoredSessionAtBoot)
+    Boolean(!isE2EMode && areOnlineServicesEnabled && isSupabaseConfigured && hasStoredSessionAtBoot)
   );
   const [status, setStatus] = useState<GameStatus>(GameStatus.MENU);
   const [level, setLevel] = useState<number>(1);
@@ -134,7 +137,7 @@ const App: React.FC = () => {
         return;
       }
 
-      if (!isSupabaseConfigured) {
+      if (!areOnlineServicesEnabled || !isSupabaseConfigured) {
         setIsCheckingAuth(false);
         setHasCheckedSavedGame(true);
         return;
@@ -536,11 +539,11 @@ const App: React.FC = () => {
 
     // If guest user completing level 1, show signup prompt instead
     if (!currentUser && level === 1) {
-      if (!isSupabaseConfigured) {
+      if (!areOnlineServicesEnabled || !isSupabaseConfigured) {
         setLevel((l) => l + 1);
         setHealth(3);
         setStatus(GameStatus.PLAYING);
-        setMessage('Offline mode: continuing without account');
+        setMessage('Continuing to Level 2');
         gameStartTimeRef.current = Date.now();
         return;
       }
@@ -843,7 +846,7 @@ const App: React.FC = () => {
   };
 
   // Show signup prompt when guest completes level 1
-  if (showSignupPrompt && isSupabaseConfigured) {
+  if (showSignupPrompt && areOnlineServicesEnabled && isSupabaseConfigured) {
     return (
       <div className="min-h-[100dvh] w-screen bg-black overflow-y-auto py-4 px-4">
         <div className="bg-gray-800 border-4 border-yellow-400 rounded-lg p-4 sm:p-6 max-w-lg w-full mx-auto text-center">
@@ -902,18 +905,18 @@ const App: React.FC = () => {
 
   return (
     <div className={`${isMobile ? 'h-[100dvh]' : 'h-screen'} w-screen bg-black ${isMobile ? 'flex flex-col' : 'flex items-center justify-center'} ${isMobile ? '' : 'p-2 sm:p-4'} overflow-hidden font-sans select-none touch-none`}>
-      {!isSupabaseConfigured && (
+      {areOnlineServicesEnabled && !isSupabaseConfigured && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[120] bg-red-900/90 border border-red-500 text-red-100 px-3 py-1 rounded text-[0.55rem] sm:text-xs font-mono">
           Online services unavailable. Running in guest-only mode.
         </div>
       )}
       {isCheckingAuth && hasStoredSessionAtBoot && !startupWarning && (
-        <div className={`fixed left-1/2 -translate-x-1/2 z-[119] max-w-[min(92vw,44rem)] rounded border border-sky-400 bg-sky-950/90 px-3 py-2 text-[0.55rem] sm:text-xs font-mono text-sky-100 ${!isSupabaseConfigured ? 'top-11' : 'top-2'}`}>
+        <div className={`fixed left-1/2 -translate-x-1/2 z-[119] max-w-[min(92vw,44rem)] rounded border border-sky-400 bg-sky-950/90 px-3 py-2 text-[0.55rem] sm:text-xs font-mono text-sky-100 ${areOnlineServicesEnabled && !isSupabaseConfigured ? 'top-11' : 'top-2'}`}>
           Restoring your saved account...
         </div>
       )}
       {startupWarning && (
-        <div className={`fixed left-1/2 -translate-x-1/2 z-[119] max-w-[min(92vw,44rem)] rounded border border-amber-400 bg-amber-950/90 px-3 py-2 text-[0.55rem] sm:text-xs font-mono text-amber-100 ${!isSupabaseConfigured ? 'top-11' : 'top-2'}`}>
+        <div className={`fixed left-1/2 -translate-x-1/2 z-[119] max-w-[min(92vw,44rem)] rounded border border-amber-400 bg-amber-950/90 px-3 py-2 text-[0.55rem] sm:text-xs font-mono text-amber-100 ${areOnlineServicesEnabled && !isSupabaseConfigured ? 'top-11' : 'top-2'}`}>
           {startupWarning}
         </div>
       )}
@@ -1026,9 +1029,9 @@ const App: React.FC = () => {
                     {/* Guest mode notice */}
                     {!user && (
                       <div className="mt-3 sm:mt-4 text-[0.55rem] sm:text-xs text-gray-400 font-mono">
-                        {isSupabaseConfigured && !onlineServicesDegraded
+                        {areOnlineServicesEnabled && isSupabaseConfigured && !onlineServicesDegraded
                           ? 'Sign up after Level 1 to save progress & compete!'
-                          : 'Online services are currently unavailable. You can still keep playing.'}
+                          : 'Full game available without an account.'}
                       </div>
                     )}
                     {/* Leaderboard only for logged-in users */}
