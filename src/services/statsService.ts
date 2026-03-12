@@ -5,6 +5,7 @@
  */
 
 import { supabase, TABLES } from '../lib/supabase';
+import { getSessionUser } from './authService';
 import type { UserStats, LeaderboardEntry } from '../types/database';
 
 /**
@@ -26,7 +27,7 @@ export async function updateUserStats(
   incrementSession: boolean = false
 ) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
 
     // Get current stats
@@ -87,7 +88,7 @@ export async function updateUserStats(
  */
 export async function getUserStats(): Promise<UserStats | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) return null;
 
     const { data, error } = await supabase

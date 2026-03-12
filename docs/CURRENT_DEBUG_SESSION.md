@@ -19,12 +19,23 @@
 
 ### Web Boot Hang Fixed
 - Found a second release-blocking issue on the web app: in some client states the app could remain stuck on the black `Loading...` screen.
-- Most likely cause: the initial auth bootstrap (`getCurrentUser()`) could hang indefinitely, leaving `isCheckingAuth` true forever.
-- Fix: added an auth-bootstrap timeout with guest-mode fallback so the app fails open instead of hanging.
+- Root cause was deeper than a missing timeout:
+  - the app boot path treated remote auth validation as a first-paint dependency
+  - `getCurrentUser()` called `supabase.auth.getUser()`, which can require a remote auth round-trip
+  - `AuthScreen` also redundantly checked auth again on mount
+  - several services repeatedly called `supabase.auth.getUser()` even when a cached session was already available locally
+- Fix:
+  - switched startup to restore the local session first and hydrate profile/saved-game data in the background
+  - removed the redundant auth bootstrap inside `AuthScreen`
+  - replaced repeated `auth.getUser()` lookups in services with session-backed lookups
+  - kept a non-blocking degraded-mode warning if online services are slow
+  - added guest continuation when sign-in is temporarily unavailable after level 1
 - Added regression coverage for:
-  - normal app boot reaching the main menu without global E2E bypass
-  - auth bootstrap stall falling back to guest mode
+  - normal app boot reaching the main menu without global E2E bypass or degraded-service warnings
+  - auth bootstrap stall while the menu remains interactive
+  - guest level 1 completion continuing to level 2 when sign-in is unavailable
 - Strengthened Playwright so the required smoke suite no longer starts the entire app in global E2E mode.
+- Added a live production smoke gate (`npm run qa:live`) plus a scheduled GitHub workflow to probe the deployed site and real production backend.
 
 ## Release / App Store Status
 
@@ -50,6 +61,9 @@
 - `npm run qa:release`
   - Default iPhone release gate
   - Runs the full iOS quality gate including the packaged simulator smoke test
+- `npm run qa:live`
+  - Default live web confidence gate after deploy
+  - Probes real production Supabase health and runs Playwright against `https://www.microbizdash.com`
 
 ### Policy
 - No meaningful gameplay or release change should ship without automated coverage first.
@@ -60,9 +74,11 @@
 
 - `npm run test:ci`
 - `npm run test:e2e`
+- `npm run test:e2e:prod`
 - `npm run test:ios:smoke`
 - `npm run qa:standard`
 - `npm run qa:release`
+- `npm run qa:live`
 
 ## Git / Repo State
 
@@ -79,6 +95,8 @@
 - `utils/levelGenerator.test.ts`
 - `App.test.tsx`
 - `e2e/level2-smoke.spec.ts`
+- `e2e/app-boot.spec.ts`
+- `scripts/check-online-services.mjs`
 - `scripts/run-ios-smoke.sh`
 - `docs/STANDARD_TESTING_PROCEDURE.md`
 - `docs/QA_AUTOMATION.md`
@@ -87,12 +105,13 @@
 
 1. Check App Store Connect for review status of `1.0.4 (5)`.
 2. Confirm the GitHub PR fully merged and `main` reflects the release changes.
-3. Confirm the web deployment has picked up the auth-bootstrap fallback fix.
+3. Confirm the web deployment has picked up the new session-first auth bootstrap change.
 4. If Apple rejects or requests changes, capture the exact rejection text and respond from there.
-5. If review passes, verify release status and monitor for any immediate production issues.
+5. Keep an eye on the scheduled production smoke workflow and any immediate production issues.
 
 ## Notes
 
 - Production Supabase config is currently active in `.env.local`.
 - The simulator was shut down at the end of the session.
 - Maestro remains available as an optional extra local layer, but the reliable native gate is the packaged iOS smoke test.
+- In this local Codex environment, direct DNS resolution to the Supabase host failed for Node/curl probes, so `qa:live` could not be fully validated here even though browser smoke against the deployed site passed.

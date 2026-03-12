@@ -8,8 +8,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Get Supabase credentials from environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabaseConfigError = isSupabaseConfigured
@@ -25,6 +25,19 @@ if (!isSupabaseConfigured) {
 // Fallback values prevent a hard crash before React can render an error state.
 const clientUrl = supabaseUrl || 'https://invalid.local';
 const clientAnonKey = supabaseAnonKey || 'missing-anon-key';
+const projectRefMatch = /^https?:\/\/([a-z0-9]{20})\.supabase\.co/i.exec(clientUrl);
+
+export const supabaseProjectRef = projectRefMatch?.[1] ?? 'unknown-project';
+export const supabaseStorageKey = `sb-${supabaseProjectRef}-auth-token`;
+
+export function hasPersistedSupabaseSession(): boolean {
+  try {
+    return window.localStorage.getItem(supabaseStorageKey) !== null;
+  } catch (error) {
+    console.warn('Unable to inspect persisted Supabase session:', error);
+    return false;
+  }
+}
 
 /**
  * Supabase client instance

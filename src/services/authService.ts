@@ -5,7 +5,8 @@
  * Uses Supabase Auth for secure authentication.
  */
 
-import { supabase, TABLES } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
+import { isSupabaseConfigured, supabase, supabaseAnonKey, supabaseUrl, TABLES } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 
 const NETWORK_ERROR_PATTERN = /load failed|failed to fetch|network request failed|networkerror/i;
@@ -28,6 +29,99 @@ function normalizeAuthError(error: unknown, fallback: string): string {
   }
 
   return message;
+}
+
+export function buildProfileFromSessionUser(user: User): UserProfile {
+  const gameName =
+    typeof user.user_metadata?.game_name === 'string' && user.user_metadata.game_name.trim()
+      ? user.user_metadata.game_name.trim()
+      : typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()
+        ? user.user_metadata.full_name.trim()
+        : user.email?.split('@')[0] || 'Player';
+
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    game_name: gameName,
+    created_at: user.created_at ?? new Date().toISOString(),
+    updated_at: user.updated_at ?? user.created_at ?? new Date().toISOString(),
+  } as UserProfile;
+}
+
+export async function getSessionUser(): Promise<User | null> {
+  try {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    return session?.user ?? null;
+  } catch (error) {
+    console.error('Error getting session user:', error);
+    return null;
+  }
+}
+
+export async function getUserProfileById(userId: string): Promise<UserProfile | null> {
+  const { data, error } = await supabase
+    .from(TABLES.USERS)
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as UserProfile;
+}
+
+export async function isAuthServiceReachable(timeoutMs: number = 2500): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabaseUrl || !supabaseAnonKey) {
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const authSettingsResponse = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKey,
+      },
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+
+    if (!authSettingsResponse.ok) {
+      return false;
+    }
+
+    const leaderboardResponse = await fetch(
+      `${supabaseUrl}/rest/v1/${TABLES.USER_STATS}?select=user_id&limit=1`,
+      {
+        method: 'GET',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      }
+    );
+
+    return leaderboardResponse.ok;
+  } catch (error) {
+    console.error('Auth service health check failed:', error);
+    return false;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 /**
@@ -221,17 +315,11 @@ export async function signOut() {
  */
 export async function getCurrentUser(): Promise<UserProfile | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
-      .from(TABLES.USERS)
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (error) throw error;
-    return data as UserProfile;
+    const profile = await getUserProfileById(user.id);
+    return profile ?? buildProfileFromSessionUser(user);
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
@@ -246,7 +334,7 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
  */
 export async function updateGameName(gameName: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
 
     const { data, error } = await supabase

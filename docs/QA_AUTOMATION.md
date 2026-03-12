@@ -6,6 +6,7 @@ This project now uses automated quality gates to prevent broken builds from ship
 
 - `npm run qa:standard` is the default merge gate. It runs the web quality gate plus Playwright smoke coverage.
 - `npm run qa:release` is the default iPhone release gate. It runs the full iOS quality gate, including the packaged simulator smoke test.
+- `npm run qa:live` is the live production smoke gate. It checks the deployed web app and the real production backend.
 
 Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-facing policy doc. Use this file for the technical details of what each gate does.
 
@@ -27,6 +28,11 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
 - `scripts/upload-to-app-store.sh` now validates the exported IPA bundle points to production Supabase before upload.
 - Upload is blocked if the IPA contains wrong project refs.
 
+### 4) Live Production Smoke Gate (`npm run qa:live`)
+- Probes the real production Supabase auth endpoint and anon leaderboard query via `scripts/check-online-services.mjs`
+- Runs Playwright against `https://www.microbizdash.com`
+- Fails if the deployed site does not reach the main menu cleanly
+
 ## Recommended Game Test Pyramid
 
 ### 1) Deterministic gameplay tests
@@ -45,7 +51,13 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
   - guest level 1 -> auth -> level 2 transition with movement still working
 - The risky transition still uses the app's `?e2e` harness, but the suite no longer starts the entire app in global E2E mode.
 - This matters because a globally bypassed auth/bootstrap path can hide real startup failures, like a loading screen that never resolves.
+- The app boot path now restores the local session first and only hydrates remote profile/saved-game data in the background. Remote auth is no longer a first-paint dependency.
 - Treat this as a fast regression net for gameplay flows in the web runtime, not as the only protection for the native iPhone build.
+
+### 3b) Live production smoke
+- Deterministic local gates are necessary but not sufficient.
+- The previous process missed a real bug because local CI did not check the deployed site or the real production backend.
+- `qa:live` closes that gap by checking the production URL and the actual online services players depend on.
 
 ### 4) Native iPhone smoke tests
 - Use the packaged simulator smoke test (`npm run test:ios:smoke`) as the required native gate before release.
@@ -70,6 +82,11 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
 - Installs Chromium
 - Executes `npm run qa:release`
 
+### `production-smoke.yml`
+- Runs on a 6-hour schedule and via workflow dispatch
+- Executes `npm run qa:live`
+- Acts as a deployed-site canary for the public web game
+
 ## Local Commands
 
 ```bash
@@ -89,6 +106,9 @@ npm run qa:ios
 # Standard required release gate
 npm run qa:release
 
+# Live deployed-site smoke gate
+npm run qa:live
+
 # Build an iOS smoke-test bundle with the E2E harness
 npm run ios:sync:e2e
 
@@ -104,17 +124,18 @@ npm run test:ios:maestro
 1. Enable branch protection in GitHub:
 - Require passing checks for:
   - `Quality Gate / qa-web`
-  - `Quality Gate / playwright-smoke`
   - `iOS Smoke Gate / qa-ios`
 - Block direct pushes to `main` without passing checks.
 
 2. Ensure repository has enough GitHub Actions minutes for macOS jobs.
 
-3. (Optional but recommended) Configure crash monitoring (for example Sentry) so production runtime failures are alerted automatically.
+3. Keep the scheduled `production-smoke.yml` workflow enabled so live web regressions surface automatically.
+
+4. (Optional but recommended) Configure crash monitoring (for example Sentry) so production runtime failures are alerted automatically.
 
 ## Current Limitations
 
-1. Tests are deterministic and mock backend behavior; they do not depend on live Supabase uptime.
+1. `qa:standard` and `qa:release` are intentionally deterministic; `qa:live` is the separate gate that depends on real production services.
 2. Apple App Review/compliance questions still require human response.
 3. Code signing and upload to App Store Connect still require Apple credentials and signing assets to be configured in CI before full zero-touch releases.
 4. Browser automation is valuable for gameplay regressions, but it does not replace native iOS smoke coverage for lifecycle and WebView-specific behavior.

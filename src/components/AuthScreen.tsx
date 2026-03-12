@@ -4,8 +4,8 @@
  * Handles user login and registration before they can play the game.
  */
 
-import { useState, useEffect } from 'react';
-import { signIn, signUp, getCurrentUser, requestPasswordReset } from '../services/authService';
+import { useState } from 'react';
+import { signIn, signUp, requestPasswordReset } from '../services/authService';
 import type { UserProfile } from '../types/database';
 
 interface AuthScreenProps {
@@ -21,16 +21,6 @@ export function AuthScreen({ onAuthenticated, embedded = false }: AuthScreenProp
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Check if user is already logged in
-  useEffect(() => {
-    getCurrentUser().then(user => {
-      if (user) {
-        onAuthenticated(user);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
