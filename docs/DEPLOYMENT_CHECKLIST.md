@@ -17,7 +17,7 @@ Use this checklist when deploying to production.
 ### Code
 - [x] Production trigger function updated with error handling (2026-01-27)
 - [x] Retry timeout increased for production (2026-01-27)
-- [ ] All recent changes tested in development
+- [ ] `npm run qa:release` passes on the release candidate
 - [ ] No console errors in browser
 - [ ] Authentication flow tested ⏳ **BLOCKED: Rate limit**
 - [ ] Game state saving/loading tested
@@ -30,7 +30,7 @@ Use this checklist when deploying to production.
 
 ```bash
 ./scripts/switch-env.sh prod
-npm run qa:web
+npm run qa:release
 ```
 
 This creates optimized production files in `dist/` folder.

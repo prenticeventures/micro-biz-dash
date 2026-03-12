@@ -1,5 +1,13 @@
 import { Entity, EntityType, LevelData, Vector } from '../types';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, COLORS, SPRITES, RESEARCH_SNIPPETS } from '../constants';
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  COLORS,
+  PLAYER_HEIGHT,
+  PLAYER_SPAWN_MARGIN_X,
+  SPRITES,
+  RESEARCH_SNIPPETS
+} from '../constants';
 
 const TILE_SIZE = 40;
 
@@ -66,6 +74,10 @@ export const generateLevel = (levelIndex: number): LevelData => {
   const rng = new SeededRNG(levelIndex * 999);
   const entities: Entity[] = [];
   const levelWidth = 2000 + (levelIndex * 400); 
+  let spawnPoint: Vector = {
+    x: PLAYER_SPAWN_MARGIN_X,
+    y: CANVAS_HEIGHT - TILE_SIZE - PLAYER_HEIGHT
+  };
 
   // --- Theme Configuration ---
   let bgSprite = SPRITES.CLOUD;
@@ -190,6 +202,14 @@ export const generateLevel = (levelIndex: number): LevelData => {
     } else {
        // Main Ground
        entities.push(createPlatform(`plat-${currentX}`, currentX, groundY, width, groundColor));
+
+       if (currentX === 0) {
+         // Spawn on the first ground platform so floating platforms cannot trap the player.
+         spawnPoint = {
+           x: currentX + PLAYER_SPAWN_MARGIN_X,
+           y: groundY - PLAYER_HEIGHT
+         };
+       }
        
        // Floating Platforms
        if (rng.next() > 0.4) {
@@ -255,6 +275,7 @@ export const generateLevel = (levelIndex: number): LevelData => {
     bossTheme,
     width: levelWidth,
     entities,
-    backgroundTerrain
+    backgroundTerrain,
+    spawnPoint
   };
 };

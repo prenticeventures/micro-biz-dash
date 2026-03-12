@@ -64,6 +64,13 @@ export enum GameStatus {
   VICTORY = 'VICTORY'
 }
 
+export interface GameDebugSnapshot {
+  status: GameStatus;
+  level: number;
+  playerX: number;
+  playerY: number;
+}
+
 export interface LevelData {
   id: number;
   name: string;
@@ -71,5 +78,6 @@ export interface LevelData {
   bossTheme: string;
   entities: Entity[];
   width: number;
-  backgroundTerrain: Vector[]; 
+  backgroundTerrain: Vector[];
+  spawnPoint: Vector;
 }

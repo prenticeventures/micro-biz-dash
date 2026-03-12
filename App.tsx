@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Preferences } from '@capacitor/preferences';
 import GameCanvas from './components/GameCanvas';
 import GameBoyControls from './components/GameBoyControls';
 import VictoryCelebration from './components/VictoryCelebration';
@@ -9,12 +10,26 @@ import { updateUserStats } from './src/services/statsService';
 import { getLeaderboard, subscribeToLeaderboard } from './src/services/statsService';
 import type { UserProfile } from './src/types/database';
 import type { GameSession, LeaderboardEntry } from './src/types/database';
+import type { GameDebugSnapshot } from './types';
 import { GameStatus } from './types';
 import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
 import { isSupabaseConfigured } from './src/lib/supabase';
 
 const App: React.FC = () => {
+  const isE2EMode =
+    import.meta.env.VITE_E2E_MODE === '1' ||
+    new URLSearchParams(window.location.search).has('e2e');
+  const isE2ENativeSmokeMode =
+    isE2EMode && import.meta.env.VITE_E2E_NATIVE_SMOKE === '1';
+  const nativeSmokeResultKey = 'nativeSmokeResult';
+  const e2eUserRef = useRef<UserProfile>({
+    id: 'e2e-user',
+    game_name: 'E2E Tester',
+    email: 'e2e@microbizdash.test',
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+  });
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [status, setStatus] = useState<GameStatus>(GameStatus.MENU);
@@ -35,9 +50,17 @@ const App: React.FC = () => {
   const [savedGame, setSavedGame] = useState<GameSession | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [hasCheckedSavedGame, setHasCheckedSavedGame] = useState(false);
+  const [debugSnapshot, setDebugSnapshot] = useState<GameDebugSnapshot>({
+    status: GameStatus.MENU,
+    level: 1,
+    playerX: 0,
+    playerY: 0,
+  });
+  const debugSnapshotRef = useRef<GameDebugSnapshot>(debugSnapshot);
   const gameStartTimeRef = useRef<number>(0);
   const lastSaveTimeRef = useRef<number>(0);
   const leaderboardUnsubscribeRef = useRef<(() => void) | null>(null);
+  const nativeSmokeRunRef = useRef(false);
   
   // Touch control state
   const [touchLeftPressed, setTouchLeftPressed] = useState<boolean>(false);
@@ -59,6 +82,12 @@ const App: React.FC = () => {
     let isMounted = true;
 
     const initApp = async () => {
+      if (isE2EMode) {
+        setIsCheckingAuth(false);
+        setHasCheckedSavedGame(true);
+        return;
+      }
+
       if (!isSupabaseConfigured) {
         setIsCheckingAuth(false);
         setHasCheckedSavedGame(true);
@@ -95,7 +124,7 @@ const App: React.FC = () => {
       leaderboardUnsubscribeRef.current?.();
       leaderboardUnsubscribeRef.current = null;
     };
-  }, [resubscribeLeaderboard]);
+  }, [isE2EMode, resubscribeLeaderboard]);
 
   useEffect(() => {
     // Initialize Audio Manager once - guard against React Strict Mode double-initialization
@@ -180,6 +209,33 @@ const App: React.FC = () => {
     }
   }, [status]);
 
+  useEffect(() => {
+    setDebugSnapshot((current) => ({
+      ...current,
+      status,
+      level,
+    }));
+  }, [level, status]);
+
+  useEffect(() => {
+    debugSnapshotRef.current = debugSnapshot;
+  }, [debugSnapshot]);
+
+  const persistNativeSmokeResult = useCallback(
+    async (payload: Record<string, unknown>) => {
+      if (!isE2ENativeSmokeMode) return;
+
+      await Preferences.set({
+        key: nativeSmokeResultKey,
+        value: JSON.stringify({
+          ...payload,
+          recordedAt: new Date().toISOString(),
+        }),
+      });
+    },
+    [isE2ENativeSmokeMode]
+  );
+
 
   useEffect(() => {
     // Determine next level description for the completion screen
@@ -216,7 +272,7 @@ const App: React.FC = () => {
 
   // Handle victory separately to ensure it has access to current values
   useEffect(() => {
-    if (status === GameStatus.VICTORY && user) {
+    if (status === GameStatus.VICTORY && user && !isE2EMode) {
       const handleVictoryAsync = async () => {
         // Complete the game session
         if (savedGame?.id) {
@@ -241,11 +297,11 @@ const App: React.FC = () => {
       
       handleVictoryAsync();
     }
-  }, [status, user, score, level, savedGame]);
+  }, [isE2EMode, status, user, score, level, savedGame]);
 
   // Auto-save game state periodically during gameplay
   useEffect(() => {
-    if (status !== GameStatus.PLAYING || !user) return;
+    if (status !== GameStatus.PLAYING || !user || isE2EMode) return;
     
     const saveInterval = setInterval(() => {
       // Save every 10 seconds
@@ -256,20 +312,20 @@ const App: React.FC = () => {
     }, 10000);
     
     return () => clearInterval(saveInterval);
-  }, [status, user]);
+  }, [isE2EMode, status, user]);
 
   // Save game state when level completes or game over
   useEffect(() => {
-    if (!user) return;
+    if (!user || isE2EMode) return;
     
     if (status === GameStatus.LEVEL_COMPLETE || status === GameStatus.GAME_OVER) {
       saveCurrentGameState();
     }
-  }, [status, user]);
+  }, [isE2EMode, status, user]);
 
   // Save game state helper
   const saveCurrentGameState = async (playerX: number = 50, playerY: number = 100) => {
-    if (!user) return;
+    if (!user || isE2EMode) return;
     
     try {
       const gameStateJson = JSON.stringify({
@@ -323,7 +379,7 @@ const App: React.FC = () => {
     audioRef.current?.init();
     
     // Start new game session in backend
-    if (user) {
+    if (user && !isE2EMode) {
       await startNewGame();
       setSavedGame(null);
     }
@@ -355,7 +411,7 @@ const App: React.FC = () => {
     }
     
     // Save game state before moving to next level
-    if (user) {
+    if (user && !isE2EMode) {
       await saveCurrentGameState();
       
       // Update stats for completing this level
@@ -381,26 +437,28 @@ const App: React.FC = () => {
     setShowSignupPrompt(false);
     
     // Save their level 1 score to the database
-    try {
-      await startNewGame();
-      const playtimeSeconds = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
-      await updateUserStats(
-        guestScore,
-        1, // level 1
-        playtimeSeconds,
-        guestScore,
-        false
-      );
-    } catch (error) {
-      console.error('Failed to save guest score:', error);
+    if (!isE2EMode) {
+      try {
+        await startNewGame();
+        const playtimeSeconds = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+        await updateUserStats(
+          guestScore,
+          1, // level 1
+          playtimeSeconds,
+          guestScore,
+          false
+        );
+      } catch (error) {
+        console.error('Failed to save guest score:', error);
+      }
+      
+      // Load leaderboard now that they're logged in
+      const leaderboardData = await getLeaderboard();
+      setLeaderboard(leaderboardData);
+      
+      // Subscribe to leaderboard updates
+      resubscribeLeaderboard();
     }
-    
-    // Load leaderboard now that they're logged in
-    const leaderboardData = await getLeaderboard();
-    setLeaderboard(leaderboardData);
-    
-    // Subscribe to leaderboard updates
-    resubscribeLeaderboard();
     
     // Continue to level 2!
     setLevel(2);
@@ -449,7 +507,7 @@ const App: React.FC = () => {
 
   const handleRestart = async () => {
     // Save game over state
-    if (user) {
+    if (user && !isE2EMode) {
       const playtimeSeconds = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
       await updateUserStats(
         score,
@@ -469,6 +527,143 @@ const App: React.FC = () => {
     setStatus(GameStatus.PLAYING);
     gameStartTimeRef.current = Date.now();
   };
+
+  const handleE2ELogin = async () => {
+    await handleGuestAuthenticated(e2eUserRef.current);
+  };
+
+  const handleE2EStepRight = () => {
+    setTouchRightPressed(true);
+    window.setTimeout(() => {
+      setTouchRightPressed(false);
+    }, 250);
+  };
+
+  useEffect(() => {
+    if (!isE2ENativeSmokeMode || nativeSmokeRunRef.current) return;
+
+    nativeSmokeRunRef.current = true;
+    let cancelled = false;
+
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+    const waitFor = async (
+      predicate: () => boolean,
+      label: string,
+      timeoutMs: number
+    ) => {
+      const startedAt = Date.now();
+
+      while (Date.now() - startedAt < timeoutMs) {
+        if (cancelled) {
+          throw new Error('Native smoke run cancelled');
+        }
+
+        if (predicate()) {
+          return;
+        }
+
+        await wait(100);
+      }
+
+      throw new Error(`Timed out waiting for ${label}`);
+    };
+
+    const runNativeSmoke = async () => {
+      const advanceToLevel2ForSmoke = async () => {
+        setUser(e2eUserRef.current);
+        setShowSignupPrompt(false);
+        setLevel(2);
+        setHealth(3);
+        setStatus(GameStatus.PLAYING);
+        gameStartTimeRef.current = Date.now();
+      };
+
+      const stepRightForSmoke = () => {
+        setTouchRightPressed(true);
+        window.setTimeout(() => {
+          setTouchRightPressed(false);
+        }, 250);
+      };
+
+      await Preferences.remove({ key: nativeSmokeResultKey });
+      await persistNativeSmokeResult({ status: 'RUNNING' });
+
+      setUser(null);
+      setShowSignupPrompt(false);
+      setGuestScore(0);
+      setScore(0);
+      setHealth(3);
+      setLives(3);
+      setLevel(1);
+      setStatus(GameStatus.PLAYING);
+      setMessage('Running native smoke test...');
+
+      await waitFor(() => {
+        const snapshot = debugSnapshotRef.current;
+        return snapshot.status === GameStatus.PLAYING && snapshot.level === 1;
+      }, 'level 1 gameplay', 6000);
+
+      await advanceToLevel2ForSmoke();
+
+      await waitFor(() => {
+        const snapshot = debugSnapshotRef.current;
+        return snapshot.status === GameStatus.PLAYING && snapshot.level === 2;
+      }, 'level 2 gameplay', 6000);
+
+      await wait(300);
+
+      const initialX = debugSnapshotRef.current.playerX;
+      let didMoveRight = false;
+
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        stepRightForSmoke();
+        await wait(400);
+
+        if (debugSnapshotRef.current.playerX > initialX + 5) {
+          didMoveRight = true;
+          break;
+        }
+      }
+
+      if (!didMoveRight) {
+        throw new Error('Timed out waiting for level 2 movement');
+      }
+
+      await persistNativeSmokeResult({
+        status: 'PASS',
+        initialX,
+        finalX: debugSnapshotRef.current.playerX,
+        snapshot: debugSnapshotRef.current,
+      });
+
+      setMessage('Native smoke passed');
+    };
+
+    runNativeSmoke().catch(async (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown native smoke error';
+
+      await persistNativeSmokeResult({
+        status: 'FAIL',
+        error: errorMessage,
+        snapshot: debugSnapshotRef.current,
+      });
+
+      setMessage('Native smoke failed');
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isE2ENativeSmokeMode,
+    nativeSmokeResultKey,
+    persistNativeSmokeResult,
+  ]);
+
+  const debugStateText = `STATUS:${debugSnapshot.status} LVL:${debugSnapshot.level} X:${Math.round(debugSnapshot.playerX)} Y:${Math.round(debugSnapshot.playerY)}`;
 
   useEffect(() => {
     if (message) {
@@ -526,6 +721,15 @@ const App: React.FC = () => {
             onAuthenticated={handleGuestAuthenticated}
             embedded={true}
           />
+
+          {isE2EMode && (
+            <button
+              onClick={handleE2ELogin}
+              className="mt-3 w-full rounded border border-cyan-400 bg-black/60 px-4 py-2 text-xs font-mono text-cyan-200"
+            >
+              E2E LOGIN
+            </button>
+          )}
           
           {/* Option to restart as guest */}
           <button
@@ -556,6 +760,31 @@ const App: React.FC = () => {
       
       {/* Retro TV/GameBoy Container */}
       <div className={`relative ${isMobile ? 'bg-gray-300' : 'bg-gray-300'} ${isMobile ? 'p-2' : 'p-3 sm:p-6 md:p-8'} ${isMobile ? 'rounded-[1rem]' : 'rounded-[2rem] sm:rounded-[2.5rem]'} shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_-4px_4px_rgba(255,255,255,0.1),inset_0_4px_10px_rgba(0,0,0,0.5)] border-b-4 sm:border-b-8 border-r-4 sm:border-r-8 ${isMobile ? 'border-gray-400' : 'border-gray-400'} w-full ${isMobile ? 'flex-1 flex flex-col min-h-0' : 'max-w-[min(900px,110vh)] flex flex-col shrink-0'}`}>
+        {isE2EMode && (
+          <div className="absolute left-2 top-2 z-[130] flex max-w-[calc(100%-1rem)] flex-wrap items-center gap-2 rounded border border-cyan-400 bg-black/85 px-2 py-1 text-[0.55rem] font-mono text-cyan-200">
+            <span data-testid="e2e-debug-state">{debugStateText}</span>
+            <button
+              onClick={() => setStatus(GameStatus.LEVEL_COMPLETE)}
+              className="rounded border border-cyan-400 px-2 py-1"
+            >
+              E2E COMPLETE LEVEL
+            </button>
+            {showSignupPrompt && !user && (
+              <button
+                onClick={handleE2ELogin}
+                className="rounded border border-cyan-400 px-2 py-1"
+              >
+                E2E LOGIN
+              </button>
+            )}
+            <button
+              onClick={handleE2EStepRight}
+              className="rounded border border-cyan-400 px-2 py-1"
+            >
+              E2E STEP RIGHT
+            </button>
+          </div>
+        )}
         
         {/* Screen Bezel - Takes exactly 2/3 of available space on mobile (accounting for container padding) */}
         <div className={`bg-black ${isMobile ? 'p-1.5' : 'p-2 sm:p-4'} ${isMobile ? 'rounded-xl' : 'rounded-[1.5rem] sm:rounded-[2rem]'} shadow-[inset_0_0_20px_rgba(0,0,0,1)] relative border-[2px] sm:border-[3px] border-neutral-700/50 ring-1 ring-white/5 ${isMobile ? 'flex-[2_1_0%] min-h-0' : 'flex-1 min-h-0'} flex flex-col`}>
@@ -600,6 +829,7 @@ const App: React.FC = () => {
                   onMessage={setMessage}
                   onDeath={handleDeath}
                   audioManager={audioRef.current}
+                  onDebugStateChange={isE2EMode ? setDebugSnapshot : undefined}
                   touchLeftPressed={touchLeftPressed}
                   touchRightPressed={touchRightPressed}
                   touchJumpPressed={touchJumpPressed}

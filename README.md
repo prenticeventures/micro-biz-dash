@@ -59,6 +59,7 @@ Micro-Biz Dash is a retro platformer game featuring:
 ### App Store
 
 - **[Submission Guide](docs/app-store/SUBMISSION_GUIDE.md)** - Complete guide for App Store submission
+- **[Standard Testing Procedure](docs/STANDARD_TESTING_PROCEDURE.md)** - The default test routine for every PR and every iPhone release
 - **[QA Automation](docs/QA_AUTOMATION.md)** - Automated test and release gate system
 
 ### Reference
@@ -120,7 +121,9 @@ npm run build            # Build for production
 npm run validate:env     # Check required Supabase vars
 npm run typecheck        # TypeScript checks
 npm run test:ci          # Run automated tests once
+npm run qa:standard      # Standard merge gate: web checks + Playwright smoke
 npm run qa:web           # Full automated web quality gate
+npm run qa:release       # Standard iPhone release gate
 npm run qa:ios           # Full automated iOS quality gate
 
 # iOS
@@ -128,6 +131,7 @@ npm run ios:sync         # Build and sync to iOS
 npm run ios:open         # Open in Xcode
 npm run ios:run          # Build, sync, and open
 npm run ios:pods         # Reinstall CocoaPods
+npm run test:ios:smoke   # Packaged native simulator smoke test
 ```
 
 ## 🔐 Environment Variables

@@ -12,6 +12,7 @@ dist
 dist-ssr
 coverage
 test-results
+playwright-report
 *.local
 
 # Environment variables
@@ -40,6 +41,7 @@ test-results
 # iOS / Capacitor
 ios/App/Pods/
 ios/App/build/
+ios/App/build-e2e/
 ios/App/*.xcworkspace/xcuserdata/
 ios/App/*.xcodeproj/xcuserdata/
 *.ipa

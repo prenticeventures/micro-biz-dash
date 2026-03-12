@@ -50,12 +50,3 @@ jobs:
 
       - name: Run iOS quality gates
         run: npm run qa:ios
-
-      - name: Build iOS app for simulator smoke validation
-        working-directory: ios/App
-        run: |
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath ./build \
-            build

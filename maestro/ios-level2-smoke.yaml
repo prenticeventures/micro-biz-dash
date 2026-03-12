@@ -1,0 +1,10 @@
+appId: com.microbizdash.game
+---
+- launchApp
+- tapOn: "PLAY LEVEL 1 FREE"
+- tapOn: "E2E COMPLETE LEVEL"
+- tapOn: "NEXT LEVEL"
+- tapOn: "E2E LOGIN"
+- assertVisible: "STATUS:PLAYING"
+- assertVisible: "LVL:2"
+- tapOn: "E2E STEP RIGHT"

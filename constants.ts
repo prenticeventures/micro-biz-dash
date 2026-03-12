@@ -6,6 +6,9 @@ export const JUMP_FORCE = -14;
 export const MOVE_SPEED = 6;
 export const FRICTION = 0.85;
 export const MAX_HEALTH = 3;
+export const PLAYER_WIDTH = 30;
+export const PLAYER_HEIGHT = 45;
+export const PLAYER_SPAWN_MARGIN_X = 20;
 
 export const COLORS = {
   SKY_LEVEL_1: ['#87CEEB', '#E0F7FA'], // Daylight

@@ -21,6 +21,7 @@ node ./scripts/verify-supabase-ref.mjs --dir dist/assets --expected-ref "$EXPECT
 if [[ "$MODE" == "ios" ]]; then
   npm run ios:sync
   node ./scripts/verify-supabase-ref.mjs --dir ios/App/App/public/assets --expected-ref "$EXPECTED_SUPABASE_PROJECT_REF" --context "iOS synced bundle"
+  npm run test:ios:smoke
 fi
 
 echo "QA gates passed (mode: $MODE)"
