@@ -87,7 +87,7 @@ Micro-Biz Dash is a retro platformer game featuring:
 
 - ✅ **Web App** - Fully functional
 - ✅ **iOS App** - Built and tested
-- ✅ **App Store** - Submitted for review (January 22, 2026)
+- ✅ **App Store** - Version `1.0.4 (5)` submitted for review (March 12, 2026)
 - ✅ **Backend** - Supabase integration complete
 - ✅ **Authentication** - User sign up/login working
 - ✅ **Game State** - Save/load functionality
