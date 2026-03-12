@@ -40,8 +40,11 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
 
 ### 3) Browser smoke tests
 - Use Playwright for high-value happy paths in the real browser shell.
-- The app now exposes a small `VITE_E2E_MODE=1` harness so smoke tests can validate the risky transitions without depending on live auth or a full hand-played level.
-- Start with the highest-risk path: start game, complete level 1, authenticate, enter level 2, and verify movement still works.
+- Required browser smoke coverage now includes:
+  - normal app boot without global E2E bypass
+  - guest level 1 -> auth -> level 2 transition with movement still working
+- The risky transition still uses the app's `?e2e` harness, but the suite no longer starts the entire app in global E2E mode.
+- This matters because a globally bypassed auth/bootstrap path can hide real startup failures, like a loading screen that never resolves.
 - Treat this as a fast regression net for gameplay flows in the web runtime, not as the only protection for the native iPhone build.
 
 ### 4) Native iPhone smoke tests
@@ -59,13 +62,13 @@ Use [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md) as the team-faci
 
 ### `quality-gate.yml`
 - Runs on every PR and push to `main`
-- Executes `npm run qa:web`
-- Installs Chromium and runs `npm run test:e2e`
+- Installs Chromium
+- Executes `npm run qa:standard`
 
 ### `ios-smoke-gate.yml`
 - Runs on push to `main` (for iOS-relevant files) and manually via workflow dispatch
-- Executes `npm run qa:ios`
-- Builds iOS simulator target with `xcodebuild` to catch native build regressions
+- Installs Chromium
+- Executes `npm run qa:release`
 
 ## Local Commands
 
@@ -77,8 +80,14 @@ npm run qa:web
 npm run test:e2e:install
 npm run test:e2e
 
+# Standard required merge gate
+npm run qa:standard
+
 # Full gate including iOS sync validation
 npm run qa:ios
+
+# Standard required release gate
+npm run qa:release
 
 # Build an iOS smoke-test bundle with the E2E harness
 npm run ios:sync:e2e

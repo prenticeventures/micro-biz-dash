@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import { getCurrentUser } from './src/services/authService';
+import type { UserProfile } from './src/types/database';
 import {
   completeGameSession,
   loadGameState,
@@ -108,6 +109,10 @@ describe('App guest auth continuation', () => {
     mockSubscribeToLeaderboard.mockReturnValue(() => undefined);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('keeps touch controls active after guest login advances into level 2', async () => {
     const user = userEvent.setup();
 
@@ -137,5 +142,31 @@ describe('App guest auth continuation', () => {
     await waitFor(() => {
       expect(screen.getByTestId('game-canvas-state')).toHaveTextContent('"touchRightPressed":true');
     });
+  });
+
+  it('falls back to guest mode when auth bootstrap stalls', async () => {
+    vi.useFakeTimers();
+    mockGetCurrentUser.mockImplementation(
+      () => new Promise<UserProfile | null>(() => undefined)
+    );
+
+    render(<App />);
+
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(4500);
+      await Promise.resolve();
+    });
+
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /play level 1 free/i })).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(/sign-in service took too long to respond/i)
+    ).toBeInTheDocument();
   });
 });

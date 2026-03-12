@@ -16,6 +16,8 @@ import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
 import { isSupabaseConfigured } from './src/lib/supabase';
 
+const AUTH_BOOT_TIMEOUT_MS = 4000;
+
 const App: React.FC = () => {
   const isE2EMode =
     import.meta.env.VITE_E2E_MODE === '1' ||
@@ -38,6 +40,7 @@ const App: React.FC = () => {
   const [health, setHealth] = useState<number>(3);
   const [lives, setLives] = useState<number>(3); // Lives counter (separate from health)
   const [message, setMessage] = useState<string>("");
+  const [startupWarning, setStartupWarning] = useState<string | null>(null);
   const [nextLevelDesc, setNextLevelDesc] = useState<string>("");
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -81,6 +84,29 @@ const App: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
 
+    const runWithTimeout = async <T,>(
+      promise: Promise<T>,
+      timeoutMs: number,
+      timeoutErrorMessage: string
+    ): Promise<T> => {
+      let timeoutId: number | undefined;
+
+      try {
+        return await Promise.race([
+          promise,
+          new Promise<T>((_, reject) => {
+            timeoutId = window.setTimeout(() => {
+              reject(new Error(timeoutErrorMessage));
+            }, timeoutMs);
+          }),
+        ]);
+      } finally {
+        if (timeoutId !== undefined) {
+          window.clearTimeout(timeoutId);
+        }
+      }
+    };
+
     const initApp = async () => {
       if (isE2EMode) {
         setIsCheckingAuth(false);
@@ -94,7 +120,22 @@ const App: React.FC = () => {
         return;
       }
 
-      const currentUser = await getCurrentUser();
+      let currentUser: UserProfile | null = null;
+      try {
+        currentUser = await runWithTimeout(
+          getCurrentUser(),
+          AUTH_BOOT_TIMEOUT_MS,
+          'Auth bootstrap timed out'
+        );
+      } catch (error) {
+        console.error('Auth bootstrap failed:', error);
+        if (isMounted) {
+          setStartupWarning(
+            'Sign-in service took too long to respond. Continuing in guest mode.'
+          );
+        }
+      }
+
       if (!isMounted) return;
 
       setUser(currentUser);
@@ -117,7 +158,15 @@ const App: React.FC = () => {
       }
     };
 
-    initApp();
+    initApp().catch((error) => {
+      console.error('Failed to initialize app:', error);
+      if (!isMounted) return;
+      setIsCheckingAuth(false);
+      setHasCheckedSavedGame(true);
+      setStartupWarning(
+        'Unable to check your sign-in state. Continuing in guest mode.'
+      );
+    });
 
     return () => {
       isMounted = false;
@@ -755,6 +804,11 @@ const App: React.FC = () => {
       {!isSupabaseConfigured && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[120] bg-red-900/90 border border-red-500 text-red-100 px-3 py-1 rounded text-[0.55rem] sm:text-xs font-mono">
           Online services unavailable. Running in guest-only mode.
+        </div>
+      )}
+      {startupWarning && (
+        <div className={`fixed left-1/2 -translate-x-1/2 z-[119] max-w-[min(92vw,44rem)] rounded border border-amber-400 bg-amber-950/90 px-3 py-2 text-[0.55rem] sm:text-xs font-mono text-amber-100 ${!isSupabaseConfigured ? 'top-11' : 'top-2'}`}>
+          {startupWarning}
         </div>
       )}
       

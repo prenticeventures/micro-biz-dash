@@ -23,6 +23,8 @@ This runs:
 - Production build validation
 - Supabase target verification in the built web bundle
 - Playwright browser smoke tests
+  - normal app boot without E2E bypass
+  - guest level 1 -> auth -> level 2 gameplay smoke via `?e2e`
 
 Use this for normal day-to-day development and before merging pull requests.
 
@@ -53,6 +55,8 @@ Use this before:
 - `qa:release` is the minimum bar for iOS release-ready work.
 - If `qa:release` fails, do not submit the app.
 - If a bug reaches players that should have been caught by the current gates, add a new automated regression test before the next release.
+- Required smoke tests must always include at least one normal startup path without global E2E bypasses.
+- E2E harnesses are allowed for specific risky flows, but they cannot be the only required browser coverage.
 
 ## Manual Release Check
 

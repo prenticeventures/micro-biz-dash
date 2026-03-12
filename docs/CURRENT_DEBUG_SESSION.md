@@ -17,6 +17,15 @@
 - Added Playwright browser smoke coverage for the same risky transition.
 - Added a packaged native iOS simulator smoke gate that boots the Capacitor app, runs the risky path inside the app, and verifies movement still works in level 2.
 
+### Web Boot Hang Fixed
+- Found a second release-blocking issue on the web app: in some client states the app could remain stuck on the black `Loading...` screen.
+- Most likely cause: the initial auth bootstrap (`getCurrentUser()`) could hang indefinitely, leaving `isCheckingAuth` true forever.
+- Fix: added an auth-bootstrap timeout with guest-mode fallback so the app fails open instead of hanging.
+- Added regression coverage for:
+  - normal app boot reaching the main menu without global E2E bypass
+  - auth bootstrap stall falling back to guest mode
+- Strengthened Playwright so the required smoke suite no longer starts the entire app in global E2E mode.
+
 ## Release / App Store Status
 
 ### Build Submitted
@@ -78,8 +87,9 @@
 
 1. Check App Store Connect for review status of `1.0.4 (5)`.
 2. Confirm the GitHub PR fully merged and `main` reflects the release changes.
-3. If Apple rejects or requests changes, capture the exact rejection text and respond from there.
-4. If review passes, verify release status and monitor for any immediate production issues.
+3. Confirm the web deployment has picked up the auth-bootstrap fallback fix.
+4. If Apple rejects or requests changes, capture the exact rejection text and respond from there.
+5. If review passes, verify release status and monitor for any immediate production issues.
 
 ## Notes
 

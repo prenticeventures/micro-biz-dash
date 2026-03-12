@@ -10,7 +10,7 @@ function getDebugX(debugText: string | null): number {
 }
 
 test('guest flow reaches level 2 and movement still works after login', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?e2e');
 
   await page.getByRole('button', { name: /play level 1 free/i }).click();
   await page.getByRole('button', { name: 'E2E COMPLETE LEVEL' }).click();

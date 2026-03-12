@@ -15,7 +15,7 @@
     "qa:web": "./scripts/run-qa-gates.sh web",
     "qa:standard": "npm run qa:web && npm run test:e2e",
     "qa:ios": "./scripts/run-qa-gates.sh ios",
-    "qa:release": "npm run qa:ios",
+    "qa:release": "npm run qa:standard && npm run qa:ios",
     "preview": "vite preview",
     "preview:e2e": "vite preview --host 127.0.0.1 --port 4173",
     "ios:sync": "npm run build && npx cap sync ios",
