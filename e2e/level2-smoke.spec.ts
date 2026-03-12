@@ -1,0 +1,33 @@
+import { expect, test } from '@playwright/test';
+
+function getDebugX(debugText: string | null): number {
+  const match = /X:(-?\d+)/.exec(debugText ?? '');
+  if (!match) {
+    throw new Error(`Could not parse debug X from "${debugText}"`);
+  }
+
+  return Number(match[1]);
+}
+
+test('guest flow reaches level 2 and movement still works after login', async ({ page }) => {
+  await page.goto('/?e2e');
+
+  await page.getByRole('button', { name: /play level 1 free/i }).click();
+  await page.getByRole('button', { name: 'E2E COMPLETE LEVEL' }).click();
+  await page.getByRole('button', { name: /next level/i }).click();
+  await expect(page.getByRole('button', { name: 'E2E LOGIN' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'E2E LOGIN' }).click();
+
+  const debugState = page.getByTestId('e2e-debug-state');
+  await expect(debugState).toContainText('STATUS:PLAYING');
+  await expect(debugState).toContainText('LVL:2');
+
+  const startX = getDebugX(await debugState.textContent());
+
+  await page.getByRole('button', { name: 'E2E STEP RIGHT' }).click();
+  await page.waitForTimeout(350);
+
+  const endX = getDebugX(await debugState.textContent());
+  expect(endX).toBeGreaterThan(startX);
+});

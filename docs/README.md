@@ -42,6 +42,9 @@ Outdated or historical documentation kept for reference:
 
 **Submitting to App Store?**
 1. [App Store Submission Guide](app-store/SUBMISSION_GUIDE.md)
+2. [Standard Testing Procedure](STANDARD_TESTING_PROCEDURE.md)
+3. [QA Automation](QA_AUTOMATION.md)
+4. [Current Project Handoff](CURRENT_DEBUG_SESSION.md)
 
 **Need technical details?**
 - Check the [Reference](reference/) directory

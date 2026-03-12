@@ -4,9 +4,15 @@ This guide covers the process of submitting Micro-Biz Dash to the App Store.
 
 ## Current Status
 
-**App Status:** ✅ **Submitted for Review** (January 22, 2026)
+**App Status:** ✅ **Submitted for Review** (March 12, 2026)
 
-The app has been successfully submitted to Apple for review. Apple typically reviews apps within 24-48 hours.
+### Current Submitted Build
+- **Version:** `1.0.4`
+- **Build:** `5`
+- **Submitted:** March 12, 2026
+- **Upload Delivery UUID:** `1d70916e-abab-4702-81fa-8a8d6282d771`
+
+The current release candidate has been uploaded and submitted to Apple for review. Apple typically reviews apps within 24-48 hours.
 
 ## App Store Connect Information
 
@@ -55,9 +61,9 @@ See `docs/reference/SIGNING_EXPLANATION.md` for why manual signing is used for R
    ```
 2. Run:
    ```bash
-   npm run qa:ios
+   npm run qa:release
    ```
-   This runs typecheck + tests + build + iOS sync + bundle-target verification.
+   This runs the full iPhone release gate: typecheck, unit/component tests, production build validation, iOS sync verification, and packaged native simulator smoke coverage.
 3. Verify the synced bundle targets production project ref:
    ```bash
    rg -o "vgkpbslbfvcwvlmwkowj|zbtbtmybzuutxfntdyvp" ios/App/App/public/assets/index-*.js | sort -u
@@ -83,6 +89,20 @@ See `docs/reference/SIGNING_EXPLANATION.md` for why manual signing is used for R
 5. Wait 5-10 minutes for upload
 
 If uploading by script (`./scripts/upload-to-app-store.sh`), it now blocks upload when the IPA does not contain the expected production Supabase project ref.
+
+### Step 3a: Current Scripted Release Path
+
+For the current repo setup, the end-to-end scripted path is:
+
+```bash
+./scripts/switch-env.sh prod
+npm run qa:release
+xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath ./build/App.xcarchive archive
+xcodebuild -exportArchive -archivePath ./build/App.xcarchive -exportPath ./build/export -exportOptionsPlist ./ExportOptions.plist
+APP_SPECIFIC_PASSWORD='xxxx-xxxx-xxxx-xxxx' ./scripts/upload-to-app-store.sh
+```
+
+This is the most reliable release flow as of March 12, 2026.
 
 ### Step 4: Select Build in App Store Connect
 
@@ -116,6 +136,7 @@ If uploading by script (`./scripts/upload-to-app-store.sh`), it now blocks uploa
 - **Primary Category:** Games → Action
 - **Subcategory:** Games → Arcade
 - **Description:** Completed (3,251 characters)
+- **What’s New (1.0.4):** `Fixed a bug where movement controls could stop working after completing Level 1 and signing in to continue to Level 2. Improved gameplay stability and added stronger quality checks to help prevent early-game issues from reaching players.`
 - **Keywords:** retro,pixel,platformer,arcade,action,2d,sidescroller,8bit,16bit,handheld,90s,indie
 - **Support URL:** https://www.microbizdash.com
 - **Privacy Policy URL:** https://www.microbizdash.com/privacy

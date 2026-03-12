@@ -6,6 +6,9 @@ import {
   JUMP_FORCE, 
   MOVE_SPEED, 
   FRICTION,
+  PLAYER_HEIGHT,
+  PLAYER_SPAWN_MARGIN_X,
+  PLAYER_WIDTH,
   SPRITES,
   COLORS,
   MAX_HEALTH,
@@ -14,6 +17,7 @@ import {
 import { 
   Entity, 
   EntityType, 
+  GameDebugSnapshot,
   GameStatus, 
   Player, 
   LevelData,
@@ -32,6 +36,7 @@ interface GameCanvasProps {
   onMessage: (msg: string) => void;
   onDeath?: () => void; // Callback when player dies
   audioManager: RetroAudio | null;
+  onDebugStateChange?: (snapshot: GameDebugSnapshot) => void;
   // Touch control state (synced with keysRef)
   touchLeftPressed?: boolean;
   touchRightPressed?: boolean;
@@ -48,6 +53,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   onMessage,
   onDeath,
   audioManager,
+  onDebugStateChange,
   touchLeftPressed = false,
   touchRightPressed = false,
   touchJumpPressed = false
@@ -59,8 +65,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const playerRef = useRef<Player>({
     id: 'player',
     type: EntityType.PLAYER,
-    pos: { x: 50, y: 100 },
-    size: { width: 30, height: 45 }, 
+    pos: { x: PLAYER_SPAWN_MARGIN_X, y: CANVAS_HEIGHT - 40 - PLAYER_HEIGHT },
+    size: { width: PLAYER_WIDTH, height: PLAYER_HEIGHT }, 
     vel: { x: 0, y: 0 },
     color: COLORS.PROFIT_GREEN,
     label: SPRITES.PLAYER_HEAD,
@@ -78,6 +84,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const levelDataRef = useRef<LevelData | null>(null);
   const touchJumpHandledRef = useRef<boolean>(false);
   const deathHandledRef = useRef<boolean>(false); // Prevent multiple death calls
+  const lastDebugPublishRef = useRef<number>(0);
 
   // Initialize Level
   useEffect(() => {
@@ -87,13 +94,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       entitiesRef.current = data.entities;
       
       // Reset Player Position 
-      playerRef.current.pos = { x: 50, y: 100 };
+      playerRef.current.pos = { ...data.spawnPoint };
       playerRef.current.vel = { x: 0, y: 0 };
       playerRef.current.health = MAX_HEALTH;
       playerRef.current.isDead = false;
       cameraXRef.current = 0;
       touchJumpHandledRef.current = false;
       deathHandledRef.current = false; // Reset death flag when level starts
+      lastDebugPublishRef.current = 0;
       
       onHealthUpdate(MAX_HEALTH);
     }
@@ -314,7 +322,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const targetCamX = player.pos.x - CANVAS_WIDTH / 3;
     cameraXRef.current = Math.max(0, Math.min(targetCamX, levelDataRef.current.width - CANVAS_WIDTH));
 
-  }, [status, levelDataRef, audioManager, touchLeftPressed, touchRightPressed]);
+    if (onDebugStateChange) {
+      const now = Date.now();
+      if (now - lastDebugPublishRef.current >= 100) {
+        lastDebugPublishRef.current = now;
+        onDebugStateChange({
+          status,
+          level,
+          playerX: player.pos.x,
+          playerY: player.pos.y,
+        });
+      }
+    }
+
+  }, [status, level, levelDataRef, audioManager, onDebugStateChange, touchLeftPressed, touchRightPressed]);
 
   // --- Drawing Helpers ---
 
