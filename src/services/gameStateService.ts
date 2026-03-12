@@ -6,6 +6,7 @@
  */
 
 import { supabase, TABLES } from '../lib/supabase';
+import { getSessionUser } from './authService';
 import type { GameSession } from '../types/database';
 
 /**
@@ -26,9 +27,9 @@ export async function saveGameState(
   playerX: number,
   playerY: number,
   gameState: string
-) {
+  ) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
 
     // Check if user has an active session
@@ -101,7 +102,7 @@ export async function saveGameState(
  */
 export async function loadGameState(): Promise<GameSession | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) return null;
 
     const { data, error } = await supabase
@@ -131,7 +132,7 @@ export async function loadGameState(): Promise<GameSession | null> {
  */
 export async function startNewGame() {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
 
     // Deactivate all existing sessions
@@ -171,7 +172,7 @@ export async function startNewGame() {
  */
 export async function completeGameSession(sessionId: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser();
     if (!user) throw new Error('Not authenticated');
 
     const { error } = await supabase

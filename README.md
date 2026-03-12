@@ -125,6 +125,7 @@ npm run qa:standard      # Standard merge gate: web checks + Playwright smoke
 npm run qa:web           # Full automated web quality gate
 npm run qa:release       # Standard iPhone release gate
 npm run qa:ios           # Full automated iOS quality gate
+npm run qa:live          # Production web smoke gate: deployed site + live backend
 
 # iOS
 npm run ios:sync         # Build and sync to iOS

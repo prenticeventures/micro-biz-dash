@@ -1,0 +1,32 @@
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  smoke-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: https://zbtbtmybzuutxfntdyvp.supabase.co
+      VITE_SUPABASE_ANON_KEY: sb_publishable_h2xnM0BR5neCzYMvIUz-yQ_YIDLinkS
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run production smoke gate
+        run: npm run qa:live

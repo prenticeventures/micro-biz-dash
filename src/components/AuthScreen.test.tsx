@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthScreen } from './AuthScreen';
 import {
-  getCurrentUser,
   requestPasswordReset,
   signIn,
   signUp,
@@ -11,11 +10,9 @@ import {
 vi.mock('../services/authService', () => ({
   signIn: vi.fn(),
   signUp: vi.fn(),
-  getCurrentUser: vi.fn(),
   requestPasswordReset: vi.fn(),
 }));
 
-const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockSignIn = vi.mocked(signIn);
 const mockSignUp = vi.mocked(signUp);
 const mockRequestPasswordReset = vi.mocked(requestPasswordReset);
@@ -23,7 +20,6 @@ const mockRequestPasswordReset = vi.mocked(requestPasswordReset);
 describe('AuthScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(null);
     mockRequestPasswordReset.mockResolvedValue({ error: null });
   });
 

@@ -1,7 +1,17 @@
-import { requestPasswordReset, signIn, signUp } from './authService';
+import {
+  getCurrentUser,
+  getSessionUser,
+  isAuthServiceReachable,
+  requestPasswordReset,
+  signIn,
+  signUp,
+} from './authService';
 import { supabase } from '../lib/supabase';
 
 vi.mock('../lib/supabase', () => ({
+  isSupabaseConfigured: true,
+  supabaseUrl: 'https://example.supabase.co',
+  supabaseAnonKey: 'sb_publishable_test_key_1234567890',
   supabase: {
     auth: {
       signUp: vi.fn(),
@@ -61,6 +71,96 @@ describe('authService error handling', () => {
     expect(result.error).toBe(
       'Network error contacting the sign-in service. Please check your connection and try again.'
     );
+  });
+});
+
+describe('session-backed auth bootstrap', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reads the cached session user without calling getUser', async () => {
+    mockedSupabase.auth.getSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: 'user-1',
+            email: 'player@example.com',
+            created_at: '2026-03-12T00:00:00.000Z',
+            updated_at: '2026-03-12T00:00:00.000Z',
+            user_metadata: { game_name: 'Player One' },
+          },
+        },
+      },
+      error: null,
+    });
+
+    const sessionUser = await getSessionUser();
+
+    expect(sessionUser?.id).toBe('user-1');
+    expect(mockedSupabase.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it('hydrates the current user from the cached session and profile table', async () => {
+    mockedSupabase.auth.getSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: 'user-2',
+            email: 'runner@example.com',
+            created_at: '2026-03-12T00:00:00.000Z',
+            updated_at: '2026-03-12T00:00:00.000Z',
+            user_metadata: { game_name: 'Runner' },
+          },
+        },
+      },
+      error: null,
+    });
+
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        id: 'user-2',
+        email: 'runner@example.com',
+        game_name: 'Runner',
+        created_at: '2026-03-12T00:00:00.000Z',
+        updated_at: '2026-03-12T00:00:00.000Z',
+      },
+      error: null,
+    });
+
+    mockedSupabase.from.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          single,
+        }),
+      }),
+    });
+
+    const currentUser = await getCurrentUser();
+
+    expect(currentUser?.id).toBe('user-2');
+    expect(mockedSupabase.auth.getUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('isAuthServiceReachable', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns true when auth settings and anon leaderboard access succeed', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const reachable = await isAuthServiceReachable(1000);
+
+    expect(reachable).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    vi.unstubAllGlobals();
   });
 });
 

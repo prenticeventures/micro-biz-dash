@@ -4,7 +4,13 @@ import GameCanvas from './components/GameCanvas';
 import GameBoyControls from './components/GameBoyControls';
 import VictoryCelebration from './components/VictoryCelebration';
 import { AuthScreen } from './src/components/AuthScreen';
-import { getCurrentUser, signOut } from './src/services/authService';
+import {
+  buildProfileFromSessionUser,
+  getSessionUser,
+  getUserProfileById,
+  isAuthServiceReachable,
+  signOut,
+} from './src/services/authService';
 import { saveGameState, loadGameState, startNewGame, completeGameSession } from './src/services/gameStateService';
 import { updateUserStats } from './src/services/statsService';
 import { getLeaderboard, subscribeToLeaderboard } from './src/services/statsService';
@@ -14,7 +20,7 @@ import type { GameDebugSnapshot } from './types';
 import { GameStatus } from './types';
 import { SPRITES, RESEARCH_SNIPPETS } from './constants';
 import { RetroAudio } from './utils/retroAudio';
-import { isSupabaseConfigured } from './src/lib/supabase';
+import { hasPersistedSupabaseSession, isSupabaseConfigured } from './src/lib/supabase';
 
 const AUTH_BOOT_TIMEOUT_MS = 4000;
 
@@ -25,6 +31,7 @@ const App: React.FC = () => {
   const isE2ENativeSmokeMode =
     isE2EMode && import.meta.env.VITE_E2E_NATIVE_SMOKE === '1';
   const nativeSmokeResultKey = 'nativeSmokeResult';
+  const [hasStoredSessionAtBoot] = useState(() => hasPersistedSupabaseSession());
   const e2eUserRef = useRef<UserProfile>({
     id: 'e2e-user',
     game_name: 'E2E Tester',
@@ -33,7 +40,9 @@ const App: React.FC = () => {
     updated_at: new Date(0).toISOString(),
   });
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(
+    Boolean(!isE2EMode && isSupabaseConfigured && hasStoredSessionAtBoot)
+  );
   const [status, setStatus] = useState<GameStatus>(GameStatus.MENU);
   const [level, setLevel] = useState<number>(1);
   const [score, setScore] = useState<number>(0);
@@ -41,6 +50,7 @@ const App: React.FC = () => {
   const [lives, setLives] = useState<number>(3); // Lives counter (separate from health)
   const [message, setMessage] = useState<string>("");
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
+  const [onlineServicesDegraded, setOnlineServicesDegraded] = useState(false);
   const [nextLevelDesc, setNextLevelDesc] = useState<string>("");
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -60,10 +70,12 @@ const App: React.FC = () => {
     playerY: 0,
   });
   const debugSnapshotRef = useRef<GameDebugSnapshot>(debugSnapshot);
+  const userRef = useRef<UserProfile | null>(user);
   const gameStartTimeRef = useRef<number>(0);
   const lastSaveTimeRef = useRef<number>(0);
   const leaderboardUnsubscribeRef = useRef<(() => void) | null>(null);
   const nativeSmokeRunRef = useRef(false);
+  const authBootstrapPromiseRef = useRef<Promise<void> | null>(null);
   
   // Touch control state
   const [touchLeftPressed, setTouchLeftPressed] = useState<boolean>(false);
@@ -80,11 +92,8 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Check authentication silently on mount (don't block the app)
-  useEffect(() => {
-    let isMounted = true;
-
-    const runWithTimeout = async <T,>(
+  const runWithTimeout = useCallback(
+    async <T,>(
       promise: Promise<T>,
       timeoutMs: number,
       timeoutErrorMessage: string
@@ -105,7 +114,18 @@ const App: React.FC = () => {
           window.clearTimeout(timeoutId);
         }
       }
-    };
+    },
+    []
+  );
+
+  const applyServiceWarning = useCallback((warning: string) => {
+    setOnlineServicesDegraded(true);
+    setStartupWarning((current) => current ?? warning);
+  }, []);
+
+  // Restore cached auth state on mount, but do not block first paint on remote services.
+  useEffect(() => {
+    let isMounted = true;
 
     const initApp = async () => {
       if (isE2EMode) {
@@ -120,60 +140,107 @@ const App: React.FC = () => {
         return;
       }
 
-      let currentUser: UserProfile | null = null;
       try {
-        currentUser = await runWithTimeout(
-          getCurrentUser(),
+        const sessionUser = await runWithTimeout(
+          getSessionUser(),
           AUTH_BOOT_TIMEOUT_MS,
-          'Auth bootstrap timed out'
+          'Session bootstrap timed out'
         );
-      } catch (error) {
-        console.error('Auth bootstrap failed:', error);
-        if (isMounted) {
-          setStartupWarning(
-            'Sign-in service took too long to respond. Continuing in guest mode.'
+        if (!isMounted) return;
+
+        if (!sessionUser) {
+          setHasCheckedSavedGame(true);
+          setIsCheckingAuth(false);
+          return;
+        }
+
+        setUser(buildProfileFromSessionUser(sessionUser));
+
+        try {
+          const resolvedProfile = await runWithTimeout(
+            getUserProfileById(sessionUser.id),
+            AUTH_BOOT_TIMEOUT_MS,
+            'Profile bootstrap timed out'
+          );
+
+          if (isMounted && resolvedProfile) {
+            setUser(resolvedProfile);
+          }
+        } catch (error) {
+          console.error('Profile bootstrap failed:', error);
+          if (isMounted) {
+            applyServiceWarning(
+              'Online services took too long to respond. You can still play, but cloud save and leaderboards may be unavailable.'
+            );
+          }
+        }
+
+        const [savedResult, leaderboardResult] = await Promise.allSettled([
+          runWithTimeout(loadGameState(), AUTH_BOOT_TIMEOUT_MS, 'Saved game bootstrap timed out'),
+          runWithTimeout(getLeaderboard(), AUTH_BOOT_TIMEOUT_MS, 'Leaderboard bootstrap timed out'),
+        ]);
+
+        if (!isMounted) return;
+
+        if (savedResult.status === 'fulfilled') {
+          setSavedGame(savedResult.value);
+        } else {
+          console.error('Saved game bootstrap failed:', savedResult.reason);
+          applyServiceWarning(
+            'Online services are partially unavailable. Cloud save could not be restored.'
           );
         }
-      }
 
-      if (!isMounted) return;
+        if (leaderboardResult.status === 'fulfilled') {
+          setLeaderboard(leaderboardResult.value);
+          resubscribeLeaderboard();
+        } else {
+          console.error('Leaderboard bootstrap failed:', leaderboardResult.reason);
+          applyServiceWarning(
+            'Online services are partially unavailable. Leaderboards could not be loaded.'
+          );
+        }
 
-      setUser(currentUser);
-      setIsCheckingAuth(false);
-
-      if (currentUser) {
-        const saved = await loadGameState();
-        if (!isMounted) return;
-
-        setSavedGame(saved);
         setHasCheckedSavedGame(true);
-
-        const leaderboardData = await getLeaderboard();
+      } catch (error) {
+        console.error('Auth bootstrap failed:', error);
         if (!isMounted) return;
-
-        setLeaderboard(leaderboardData);
-        resubscribeLeaderboard();
-      } else {
+        applyServiceWarning(
+          'Online services took too long to respond. You can still play in guest mode while sign-in recovers.'
+        );
         setHasCheckedSavedGame(true);
+      } finally {
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
       }
     };
 
-    initApp().catch((error) => {
-      console.error('Failed to initialize app:', error);
-      if (!isMounted) return;
-      setIsCheckingAuth(false);
-      setHasCheckedSavedGame(true);
-      setStartupWarning(
-        'Unable to check your sign-in state. Continuing in guest mode.'
-      );
-    });
+    const initPromise = initApp()
+      .catch((error) => {
+        console.error('Failed to initialize app:', error);
+        if (!isMounted) return;
+        setIsCheckingAuth(false);
+        setHasCheckedSavedGame(true);
+        applyServiceWarning(
+          'Unable to restore online services. You can still play in guest mode.'
+        );
+      })
+      .finally(() => {
+        if (authBootstrapPromiseRef.current === initPromise) {
+          authBootstrapPromiseRef.current = null;
+        }
+      });
+
+    authBootstrapPromiseRef.current = initPromise;
 
     return () => {
       isMounted = false;
       leaderboardUnsubscribeRef.current?.();
       leaderboardUnsubscribeRef.current = null;
+      authBootstrapPromiseRef.current = null;
     };
-  }, [isE2EMode, resubscribeLeaderboard]);
+  }, [applyServiceWarning, isE2EMode, resubscribeLeaderboard, runWithTimeout]);
 
   useEffect(() => {
     // Initialize Audio Manager once - guard against React Strict Mode double-initialization
@@ -269,6 +336,10 @@ const App: React.FC = () => {
   useEffect(() => {
     debugSnapshotRef.current = debugSnapshot;
   }, [debugSnapshot]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const persistNativeSmokeResult = useCallback(
     async (payload: Record<string, unknown>) => {
@@ -374,7 +445,7 @@ const App: React.FC = () => {
 
   // Save game state helper
   const saveCurrentGameState = async (playerX: number = 50, playerY: number = 100) => {
-    if (!user || isE2EMode) return;
+    if (!userRef.current || isE2EMode) return;
     
     try {
       const gameStateJson = JSON.stringify({
@@ -422,13 +493,30 @@ const App: React.FC = () => {
   };
 
   // Start new game
+  const awaitAuthBootstrapIfNeeded = useCallback(async () => {
+    if (authBootstrapPromiseRef.current) {
+      await authBootstrapPromiseRef.current;
+    }
+  }, []);
+
+  const continueWithoutAccount = useCallback((warningMessage: string, gameplayMessage: string) => {
+    applyServiceWarning(warningMessage);
+    setLevel((currentLevel) => currentLevel + 1);
+    setHealth(3);
+    setStatus(GameStatus.PLAYING);
+    setMessage(gameplayMessage);
+    gameStartTimeRef.current = Date.now();
+  }, [applyServiceWarning]);
 
   const handleStart = async () => {
+    await awaitAuthBootstrapIfNeeded();
+    const currentUser = userRef.current;
+
     // Important: Resume AudioContext on user gesture
     audioRef.current?.init();
     
     // Start new game session in backend
-    if (user && !isE2EMode) {
+    if (currentUser && !isE2EMode) {
       await startNewGame();
       setSavedGame(null);
     }
@@ -443,8 +531,11 @@ const App: React.FC = () => {
   };
 
   const handleNextLevel = async () => {
+    await awaitAuthBootstrapIfNeeded();
+    const currentUser = userRef.current;
+
     // If guest user completing level 1, show signup prompt instead
-    if (!user && level === 1) {
+    if (!currentUser && level === 1) {
       if (!isSupabaseConfigured) {
         setLevel((l) => l + 1);
         setHealth(3);
@@ -454,13 +545,32 @@ const App: React.FC = () => {
         return;
       }
 
+      if (!isE2EMode && onlineServicesDegraded) {
+        continueWithoutAccount(
+          'Online services are temporarily unavailable. Continuing without account save.',
+          'Continuing without account'
+        );
+        return;
+      }
+
+      if (!isE2EMode) {
+        const authReachable = await isAuthServiceReachable(AUTH_BOOT_TIMEOUT_MS);
+        if (!authReachable) {
+          continueWithoutAccount(
+            'Sign-in is temporarily unavailable. Continuing without account save.',
+            'Sign-in unavailable: continuing'
+          );
+          return;
+        }
+      }
+
       setGuestScore(score); // Save their score to restore after signup
       setShowSignupPrompt(true);
       return;
     }
     
     // Save game state before moving to next level
-    if (user && !isE2EMode) {
+    if (currentUser && !isE2EMode) {
       await saveCurrentGameState();
       
       // Update stats for completing this level
@@ -732,15 +842,6 @@ const App: React.FC = () => {
     return RESEARCH_SNIPPETS.DEFAULT_DEATH;
   };
 
-  // Show loading screen only while checking auth (brief)
-  if (isCheckingAuth) {
-    return (
-      <div className="h-screen w-screen bg-black flex items-center justify-center">
-        <div className="text-yellow-400 font-['Press_Start_2P']">Loading...</div>
-      </div>
-    );
-  }
-
   // Show signup prompt when guest completes level 1
   if (showSignupPrompt && isSupabaseConfigured) {
     return (
@@ -804,6 +905,11 @@ const App: React.FC = () => {
       {!isSupabaseConfigured && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[120] bg-red-900/90 border border-red-500 text-red-100 px-3 py-1 rounded text-[0.55rem] sm:text-xs font-mono">
           Online services unavailable. Running in guest-only mode.
+        </div>
+      )}
+      {isCheckingAuth && hasStoredSessionAtBoot && !startupWarning && (
+        <div className={`fixed left-1/2 -translate-x-1/2 z-[119] max-w-[min(92vw,44rem)] rounded border border-sky-400 bg-sky-950/90 px-3 py-2 text-[0.55rem] sm:text-xs font-mono text-sky-100 ${!isSupabaseConfigured ? 'top-11' : 'top-2'}`}>
+          Restoring your saved account...
         </div>
       )}
       {startupWarning && (
@@ -920,9 +1026,9 @@ const App: React.FC = () => {
                     {/* Guest mode notice */}
                     {!user && (
                       <div className="mt-3 sm:mt-4 text-[0.55rem] sm:text-xs text-gray-400 font-mono">
-                        {isSupabaseConfigured
+                        {isSupabaseConfigured && !onlineServicesDegraded
                           ? 'Sign up after Level 1 to save progress & compete!'
-                          : 'Offline mode: account sync and leaderboard unavailable.'}
+                          : 'Online services are currently unavailable. You can still keep playing.'}
                       </div>
                     )}
                     {/* Leaderboard only for logged-in users */}
